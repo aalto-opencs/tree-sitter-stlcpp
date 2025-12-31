@@ -1,33 +1,26 @@
 // Tree-sitter grammar for a pragmatic subset of STLC++ (stlcpp).
 //
-// Goal of this version:
-// - Provide stable *named nodes* for punctuation/operators so Zed highlighting
-//   can capture those nodes, avoiding literal-token query patterns.
-// - Keep parsing permissive enough to work well on upstream examples.
+// Goals for this variant:
+// - Treat newline and comment as regular tokens (not global extras) so the
+//   grammar can explicitly control where blank/comment-only lines are allowed.
+// - Add a top-level `_separator` composed of one-or-more newlines/comments and
+//   use it in `source_file` so inner constructs (like application) cannot
+//   span blank/comment-only lines and the parser doesn't shift final EOF
+//   trivia into erroneous parse states.
 //
-// Notes from upstream parser (nom):
-// - Line comments: // ...
-// - Term identifiers: lowercase initial; may contain . _ '
-// - Type identifiers: uppercase initial, alphanumeric only; '_' is a special hole type.
-// - Keywords are never valid identifiers.
-// - Lots of constructs exist (fun, forall, if/then/else, case/of, lcase/of, etc.).
+// Notes / design decisions:
+// - Horizontal whitespace (spaces, tabs, formfeed, CR) are left in `extras` so
+//   tokens can be separated normally without explicit tokens.
+// - `newline` and `comment` are ordinary tokens. The top-level `source_file`
+//   consumes sequences of statements interleaved with `_separator`, preventing
+//   applications from greedily swallowing blank/comment lines.
+// - A small number of rules can still explicitly refer to `$.newline` if a
+//   physical line break must be enforced; otherwise newlines are consumed only
+//   by separators between top-level statements.
 //
-// IMPORTANT:
-// - In upstream stlcpp, '.' is part of term identifiers (so `a.b` is a single identifier).
-// - Term-level custom operators include *any* non-whitespace, non-alphanumeric character
-//   (per upstream `is_symbolic`), but we exclude '.' so identifiers win.
-// - Custom operators are term-level only; type syntax uses `->` and does not use custom ops.
-// - Char/string literals follow upstream escape support (see `src/term/parse.rs`):
-//   escapes: \u{1..6 hex}, \n, \r, \t, \b, \f, \\, \/, \"
-//
-// This grammar does not attempt to perfectly replicate precedence/associativity of
-// every operator in STLC++. It produces a useful tree and explicit operator nodes
-// for editor features.
-//
-// NOTE:
-// This grammar treats `newline` as significant (not trivia) to match upstream module parsing,
-// but allows newlines in many expression positions to support indented formatting.
-///
+// This file is intended as a conservative change focused on EOF/newline handling
+// and should be followed by targeted fixes if any particular example requires
+// an explicit newline rule.
 
 const PREC = {
   assignment: 1,
@@ -40,8 +33,7 @@ const PREC = {
   //   infix_expression -> application_or_primary (operator application_or_primary)+
   //   application -> term_primary (argument)+
   //
-  // We keep all custom operators at a single precedence level for now to favor
-  // stable parsing/highlighting over semantic precedence.
+  // Keep custom operators at a single precedence level for stable parsing.
   prefix: 3,
   infix: 4,
   application: 5,
@@ -50,67 +42,34 @@ const PREC = {
 module.exports = grammar({
   name: "stlcpp",
 
-  // NOTE:
-  // NOTE:
-  // Newlines are significant (not trivia). This is required to prevent module-level
-  // declarations from swallowing subsequent definitions and to support newline-delimited
-  // syntax like:
-  //
-  //   a : Ty
-  //   a = term
-  //
-  // We still treat horizontal whitespace as trivia, and comments are trivia.
-  extras: ($) => [/[ \t\f\v\r]/, $.comment],
+  // Horizontal whitespace is global trivia so tokens can be separated normally.
+  // We treat newline and comment as tokens so we can explicitly control them.
+  extras: ($) => [/[ \t\f\r]/],
 
   word: ($) => $.term_identifier,
 
-  // Tree-sitter conflict declarations.
-  //
-  // This grammar accepts both:
-  //   lcase e of | nil => t | cons x xs => u
-  // and:
-  //   case e of | inl x => t | inr y => u
-  // without requiring braces.
-  //
-  // In practice, this can yield local ambiguities around how arm lists associate,
-  // especially with optional braces.
-  //
-  // Additionally, once we allow optional newlines in/around `of` and at arm boundaries,
-  // Tree-sitter can face shift/reduce ambiguity between continuing the arm list vs
-  // reducing the enclosing `case_expression`/`lcase_expression`. Make that ambiguity
-  // explicit here so the generator can proceed.
+  // Local ambiguities are expected around case/lcase arm lists; declare conflicts
+  // so the generator accepts the grammar and runtime disambiguates.
   conflicts: ($) => [[$.case_expression], [$.lcase_expression]],
 
   rules: {
-    // Treat a source file as a sequence of module-level items. We intentionally do
-    // not accept arbitrary expressions at the top level.
-    //
-    // IMPORTANT:
-    // Newlines are trivia (extras). Therefore we MUST structure the grammar so that:
-    // - statements reduce cleanly at EOF
-    // - no statement relies on a newline token as a terminator
-    // - statement starts are sufficiently disjoint to avoid error-recovery cascades
-    //
-    // Module is newline-delimited (like upstream). Allow:
-    // - blank/comment-only lines
-    // - statements separated by one or more newlines
+    // Treat a source file as a sequence of module-level items with separators.
+    // This prevents trailing newlines/comments at EOF from producing ERROR nodes
+    // because the top-level consumes that trivia explicitly.
     source_file: ($) =>
       seq(
-        repeat(choice($.newline, $.comment)),
-        optional(
-          seq(
-            $._statement,
-            repeat(seq(repeat1($.newline), $._statement)),
-            optional(repeat1($.newline)),
-          ),
-        ),
+        optional($._separator),
+        repeat(seq($._statement, optional($._separator))),
       ),
+
+    // Separator for top-level statements: one or more newlines and/or comments.
+    // By making this explicit and using it only at the top-level, inner constructs
+    // are prevented from crossing blank/comment-only lines.
+    _separator: ($) => repeat1(choice($.newline, $.comment)),
 
     // ----------------------------------------------------------------------------
     // Statements / top-level-ish forms
     // ----------------------------------------------------------------------------
-    //
-    // NOTE: Order matters. Try the most “keyworded/specific” forms first.
     _statement: ($) =>
       choice(
         $.import_statement,
@@ -124,11 +83,10 @@ module.exports = grammar({
     import_statement: ($) =>
       seq(field("keyword", $.kw_import), field("module", $.term_identifier)),
 
+    // Fixity declarations:
     // infixl a OP b = expr
     // infixr a OP b = expr
-    // infixl _ OP _ = expr   (underscore binders allowed)
     // prefix OP x = expr
-    // prefix OP _ = expr
     fixity_declaration: ($) =>
       choice(
         seq(
@@ -148,14 +106,9 @@ module.exports = grammar({
         ),
       ),
 
-    // Type alias declaration (upstream):
-    //
-    //   State : Type
-    //   State = (Integer, Boolean)
-    //
-    // IMPORTANT:
-    // Keep this disjoint from `declaration` (term-level) by using `type_identifier`
-    // and the literal sort `Type`.
+    // ----------------------------------------------------------------------------
+    // Type alias declaration
+    // ----------------------------------------------------------------------------
     type_alias_declaration: ($) =>
       prec.right(
         PREC.assignment,
@@ -165,9 +118,7 @@ module.exports = grammar({
           field("sort", $.kw_Type),
           optional(
             seq(
-              // Upstream examples sometimes use a plain identifier here (e.g. `Int`)
-              // rather than repeating the type name. Accept both.
-              field("name2", choice($.type_identifier, $.term_identifier)),
+              field("name2", $.type_identifier),
               field("equals", $.equals),
               field("value", $.type),
             ),
@@ -178,36 +129,6 @@ module.exports = grammar({
     // ----------------------------------------------------------------------------
     // Declarations (top-level)
     // ----------------------------------------------------------------------------
-    //
-    // Upstream module parser (nom) treats value declarations as:
-    //
-    //   x : Type
-    //   x = Term        (optional; if omitted upstream synthesizes a default panic term)
-    //
-    // This matches the upstream token model (see `term/tokens.rs`):
-    // - `Let` exists only inside term syntax (`let x = t in u`)
-    // - Top-level values are declarations/definitions, not expressions.
-    //
-    // NOTE:
-    // We keep this newline-insensitive because newlines
-    // are trivia (`extras`). This makes parsing robust in editors.
-    // IMPORTANT (module-level):
-    // Newlines are trivia (`extras` includes `\s`), so without an explicit terminator
-    // a declaration like:
-    //
-    //   f : Int -> Int
-    //   f = fun x : Int, a
-    //
-    // can be parsed as a *single* `declaration` with the optional value part, because
-    // `term_identifier` can start the next statement and there is no newline token
-    // to stop the `expr` from greedily consuming following lines.
-    //
-    // To prevent `declaration` from swallowing subsequent statements, require an
-    // explicit terminator after the type (and after the optional value):
-    // - either a semicolon `;`
-    // - or end-of-file
-    //
-    // This keeps editor parsing robust even though newlines are skipped as trivia.
     declaration: ($) =>
       prec.right(
         PREC.assignment,
@@ -215,16 +136,10 @@ module.exports = grammar({
           field("name", $.term_identifier),
           field("colon", $.colon),
           field("type", $.type),
-          // Optional definition must start on the next line (newline-delimited module syntax).
           optional(
             seq(
-              field("newline", $.newline),
               field("name2", $.term_identifier),
-              // Allow optional newline(s) around '=' (matches upstream tolerance of at most one NL
-              // in many whitespace positions, and supports `main =` followed by an indented term).
-              repeat($.newline),
               field("equals", $.equals),
-              repeat($.newline),
               field("value", $.expr),
             ),
           ),
@@ -232,12 +147,6 @@ module.exports = grammar({
       ),
 
     // x = expr
-    //
-    // This must reduce cleanly at EOF, otherwise Zed will show (ERROR ...) for the
-    // whole definition block and cascade into spurious errors.
-    //
-    // Keep this rule *structurally simple* so the parser can reduce it immediately
-    // once `value` is complete.
     value_definition: ($) =>
       prec.right(
         PREC.assignment,
@@ -251,128 +160,82 @@ module.exports = grammar({
     // ----------------------------------------------------------------------------
     // Types
     // ----------------------------------------------------------------------------
-    // Upstream allows base types (`Integer`, `Boolean`, `Character`, `Unit`) and named
-    // types as full types, so `x : Integer` is valid.
+    // `type` is the top-level entrypoint for type syntax. We parse three forms:
+    //  - `forall` quantifiers
+    //  - right-associative arrow chains (A -> B -> C)
+    //  - primary types (identifiers, parens, products, lists, apps)
     //
-    // Type grammar (precedence-aware, single entrypoint)
-    //
-    // Upstream (`src/type/parse.rs`) parses types with an operator-precedence parser:
-    // - `+` (sum) is left-associative and lower precedence
-    // - `->` (arrow) is right-associative and higher precedence
-    // - `forall` binds at the top and its body is a full type
-    //
-    // We model this with two operator layers:
-    //   type        := forall_type | type_sum
-    //   type_sum    := type_arrow ('+' type_arrow)*
-    //   type_arrow  := type_primary ('->' type_arrow)?
-    //
-    // `type` is the only public nonterminal: use it everywhere a type is expected.
-    type: ($) => choice($.forall_type, $.type_sum),
-
-    // forall T, Type
-    forall_type: ($) =>
-      prec.right(
+    // Arrow chains are implemented as a right-associative sequence built from
+    // `type_primary` so common surface forms like `Int -> Int` parse robustly.
+    type: ($) => $.type_expr,
+    type_expr: ($) =>
+      choice(
+        // forall T, Type
         seq(
           field("keyword", $.kw_forall),
           field("tvar", $.type_identifier),
           optional(seq(field("colon", $.colon), field("sort", $.kw_Type))),
           field("comma", $.comma),
-          field("body", $.type),
+          field("body", $.type_expr),
         ),
+
+        // Right-associative arrow chain built from primaries.
+        // This accepts `A -> B` and `A -> B -> C` etc., associating to the right.
+        prec.right(
+          PREC.arrow,
+          seq(
+            field("left", $.type_primary),
+            repeat(seq(field("arrow", $.arrow), field("right", $.type))),
+          ),
+        ),
+
+        // Simple primary type
+        $.type_primary,
       ),
 
-    // Sum types: A + B + C   (left-associative)
-    type_sum: ($) =>
-      prec.left(
-        seq(
-          field("left", $.type_arrow),
-          repeat(seq(field("operator", $.plus), field("right", $.type_arrow))),
-        ),
-      ),
-
-    // Arrow types: A -> B -> C   (right-associative)
-    type_arrow: ($) =>
-      prec.right(
-        PREC.arrow,
-        seq(
-          field("left", $.type_primary),
-          optional(seq(field("arrow", $.arrow), field("right", $.type_arrow))),
-        ),
-      ),
+    type_sum: ($) => $.type_primary,
 
     type_primary: ($) =>
       choice(
-        // Base types are *keywords* in upstream:
-        // Boolean, Integer, Character, Unit
-        $.kw_Boolean,
-        $.kw_Integer,
-        $.kw_Character,
-        $.kw_Unit,
-
-        // Common type constructors used by the upstream type parser.
-        // These are not "keywords" in the reserved-word sense, but they are parsed
-        // as constructors in `parse_type_primary` (List/IO) and in bracket sugar.
-        $.type_list_ctor,
-        $.type_io_ctor,
-
-        $.type_identifier, // includes '_' hole
+        $.type_identifier,
         $.type_parens,
         $.type_prod,
         $.type_list_brackets,
-      ),
-
-    // List T   (as in upstream `parse_list_type`)
-    type_list_ctor: ($) =>
-      prec.right(
-        PREC.application,
-        seq(field("ctor", $.kw_List), field("arg", $.type_primary)),
-      ),
-
-    // IO T  (as in upstream `parse_io_type`)
-    type_io_ctor: ($) =>
-      prec.right(
-        PREC.application,
-        seq(field("ctor", $.kw_IO), field("arg", $.type_primary)),
+        $.type_app,
       ),
 
     type_parens: ($) =>
       seq(
         field("lparen", $.lparen),
-        field("type", $.type),
+        field("type", $.type_expr),
         field("rparen", $.rparen),
       ),
 
     type_prod: ($) =>
       seq(
         field("lparen", $.lparen),
-        field("left", $.type),
+        field("left", $.type_expr),
         field("comma", $.comma),
-        field("right", $.type),
+        field("right", $.type_expr),
         field("rparen", $.rparen),
       ),
 
-    // Bracket list sugar: [T]  (upstream `parse_list_type_brackets`)
     type_list_brackets: ($) =>
       seq(
         field("lbrack", $.lbrack),
-        field("type", $.type),
+        field("type", $.type_expr),
         field("rbrack", $.rbrack),
+      ),
+
+    type_app: ($) =>
+      prec.right(
+        PREC.application,
+        seq(field("ctor", $.type_identifier), field("arg", $.type_primary)),
       ),
 
     // ----------------------------------------------------------------------------
     // Terms / expressions
     // ----------------------------------------------------------------------------
-    //
-    // Refactor goal:
-    // - Remove ambiguity around `let ... = <value> in ...` where `<value>` can be a
-    //   single atomic term like `2`.
-    // - Prevent the parser from getting stuck in an "application continuing" state
-    //   where it cannot accept `kw_in`.
-    //
-    // Strategy:
-    // - Define an internal "atom" expression that cannot contain `let`, `if`, etc.
-    // - Build application and infix layers on top of atoms.
-    // - Keep `let` / `if` / `case` / `lcase` / `fun` at the highest level.
     expr: ($) =>
       choice(
         $.if_expression,
@@ -384,7 +247,6 @@ module.exports = grammar({
         $.infix_expression,
       ),
 
-    // if e then e else e
     if_expression: ($) =>
       seq(
         field("if", $.kw_if),
@@ -395,41 +257,26 @@ module.exports = grammar({
         field("else_expr", $.expr),
       ),
 
-    // let x = e in e
-    //
-    // IMPORTANT:
-    // Use `infix_expression` (not full `expr`) for the value position. This ensures
-    // that after parsing a simple literal like `2`, the parser is in a state that can
-    // immediately accept `kw_in`, rather than trying to continue as a larger `expr`.
     let_expression: ($) =>
       seq(
         field("let", $.kw_let),
         field("name", $.term_identifier),
-        // Allow `let x =` with the value on the next line.
-        repeat($.newline),
         field("equals", $.equals),
-        repeat($.newline),
         field("value", $.infix_expression),
         field("in", $.kw_in),
-        // Allow `in` followed by a newline (as in the upstream examples with indentation).
-        repeat($.newline),
         field("body", $.expr),
       ),
 
-    // fun x : T, e
     fun_expression: ($) =>
       seq(
         field("fun", $.kw_fun),
         field("param", $.term_identifier_or_hole),
         field("colon", $.colon),
-        field("type", $.type),
+        field("type", $.type_expr),
         field("comma", $.comma),
-        // Allow `fun x : T,` followed by an indented body on the next line(s).
-        repeat($.newline),
         field("body", $.expr),
       ),
 
-    // fun T, e   (type abstraction)
     tfun_expression: ($) =>
       seq(
         field("fun", $.kw_fun),
@@ -443,18 +290,9 @@ module.exports = grammar({
       seq(
         field("case", $.kw_case),
         field("scrutinee", $.expr),
-        // Allow newline(s) before `of` in formatted code.
-        repeat($.newline),
         field("of", $.kw_of),
-        // Allow newline(s) after `of` before arms/braces.
-        repeat($.newline),
         optional(field("lbrace", $.lbrace)),
-        // Allow newline(s) after `{`
-        repeat($.newline),
-        // Allow blank lines between arms by permitting newlines between repetitions.
-        seq($.case_arm, repeat(seq(repeat1($.newline), $.case_arm))),
-        // Allow newline(s) before `}`
-        repeat($.newline),
+        repeat1($.case_arm),
         optional(field("rbrace", $.rbrace)),
       ),
 
@@ -464,8 +302,6 @@ module.exports = grammar({
         field("ctor", choice($.kw_inl, $.kw_inr)),
         field("binder", $.term_identifier_or_hole),
         field("arrow", $.fat_arrow),
-        // Allow newline(s) after `=>` for indented arm bodies.
-        repeat($.newline),
         field("body", $.expr),
       ),
 
@@ -473,17 +309,9 @@ module.exports = grammar({
       seq(
         field("lcase", $.kw_lcase),
         field("scrutinee", $.expr),
-        // Allow newline(s) before/after `of` in formatted code.
-        repeat($.newline),
         field("of", $.kw_of),
-        repeat($.newline),
         optional(field("lbrace", $.lbrace)),
-        // Allow newline(s) after `{`
-        repeat($.newline),
-        // Allow blank lines between arms by permitting newlines between repetitions.
-        seq($.lcase_arm, repeat(seq(repeat1($.newline), $.lcase_arm))),
-        // Allow newline(s) before `}`
-        repeat($.newline),
+        repeat1($.lcase_arm),
         optional(field("rbrace", $.rbrace)),
       ),
 
@@ -493,8 +321,6 @@ module.exports = grammar({
           field("bar", $.bar),
           field("nil", $.kw_nil),
           field("arrow", $.fat_arrow),
-          // Allow newline(s) after `=>` for indented arm bodies.
-          repeat($.newline),
           field("body", $.expr),
         ),
         seq(
@@ -503,7 +329,6 @@ module.exports = grammar({
           field("head", $.term_identifier_or_hole),
           field("tail", $.term_identifier_or_hole),
           field("arrow", $.fat_arrow),
-          repeat($.newline),
           field("body", $.expr),
         ),
       ),
@@ -511,12 +336,6 @@ module.exports = grammar({
     // ----------------------------------------------------------------------------
     // Core expression layers
     // ----------------------------------------------------------------------------
-
-    // Internal atom expression used for application and infix parsing.
-    //
-    // This is intentionally restricted to constructs that cannot contain `let ... in ...`
-    // or other keyword-led expressions. This restriction reduces ambiguous states
-    // at token boundaries like `... 2 in ...`.
     _atom: ($) =>
       choice(
         $.integer,
@@ -542,11 +361,8 @@ module.exports = grammar({
         ),
       ),
 
-    // Arguments can be term atoms or type primaries (for type application `TApp` surface forms).
     app_argument: ($) => choice($._atom, $.type_primary),
 
-    // Prefix operator application at term level:
-    //   OP e
     prefix_application: ($) =>
       prec.right(
         PREC.prefix,
@@ -556,12 +372,6 @@ module.exports = grammar({
         ),
       ),
 
-    // Generic infix operator chain at term level:
-    //   e1 op e2 op e3 ...
-    //
-    // Note: We use `repeat` (not `repeat1`) so that an atom/application alone is
-    // still a valid `infix_expression`, which helps `let x = 2 in ...` reduce the
-    // value before encountering `kw_in`.
     infix_expression: ($) =>
       prec.left(
         PREC.infix,
@@ -578,9 +388,6 @@ module.exports = grammar({
 
     application_or_primary: ($) => choice($.application, $._atom),
 
-    // Term primaries:
-    // Kept for compatibility with existing highlight queries and node names.
-    // Internally, the expression grammar prefers `_atom`.
     term_primary: ($) => $._atom,
 
     term_parens: ($) =>
@@ -610,7 +417,7 @@ module.exports = grammar({
           ),
         ),
         field("colon", $.colon),
-        field("type", $.type),
+        field("type", $.type_expr),
         field("rbrack", $.rbrack),
       ),
 
@@ -641,7 +448,7 @@ module.exports = grammar({
         ),
         seq(
           field("kw", $.kw_panic),
-          field("type", $.type),
+          field("type", $.type_expr),
           field("arg", $.expr),
         ),
         seq(
@@ -668,7 +475,6 @@ module.exports = grammar({
               "\\u",
               "{",
               choice(
-                /[0-9a-fA-F]/,
                 /[0-9a-fA-F]/,
                 seq(/[0-9a-fA-F]/, /[0-9a-fA-F]/),
                 seq(/[0-9a-fA-F]/, /[0-9a-fA-F]/, /[0-9a-fA-F]/),
@@ -751,12 +557,15 @@ module.exports = grammar({
     type_identifier: (_) => token(choice("_", /[A-Z][A-Za-z0-9]*/)),
 
     // ----------------------------------------------------------------------------
-    // Comments
+    // Comments and newlines (tokens)
     // ----------------------------------------------------------------------------
     comment: (_) => token(seq("//", /.*/)),
 
+    // Explicit newline token. Not in `extras`; used inside `_separator`.
+    newline: (_) => token(/\r?\n/),
+
     // ----------------------------------------------------------------------------
-    // Explicit punctuation/operator nodes (for highlighting without literal tokens)
+    // Punctuation / operators (named tokens for highlighting)
     // ----------------------------------------------------------------------------
     lparen: (_) => token("("),
     rparen: (_) => token(")"),
@@ -767,11 +576,8 @@ module.exports = grammar({
     comma: (_) => token(","),
     colon: (_) => token(":"),
     bar: (_) => token("|"),
-    plus: (_) => token("+"),
 
     equals: (_) => token("="),
-
-    newline: (_) => token(/\r?\n/),
 
     arrow: (_) => token("->"),
 
@@ -780,8 +586,6 @@ module.exports = grammar({
     operator: (_) =>
       token(
         choice(
-          // Allow `.` as an infix operator in terms (used for composition chains like `inc . double`).
-          ".",
           "-",
           seq("-", /[^.>\s\w()\[\]{},:|=]/, /[^.\s\w()\[\]{},:|=]*/),
           /[^.\s\w()\[\]{},:|=|-][^.\s\w()\[\]{},:|=]*/,
@@ -791,16 +595,10 @@ module.exports = grammar({
     // ----------------------------------------------------------------------------
     // Keywords
     // ----------------------------------------------------------------------------
-    // Give keywords higher precedence than identifiers so they never get tokenized
-    // as `term_identifier`/`type_identifier` in ambiguous contexts.
     kw_import: (_) => token(prec(2, "import")),
     kw_fun: (_) => token(prec(2, "fun")),
     kw_forall: (_) => token(prec(2, "forall")),
     kw_Type: (_) => token(prec(2, "Type")),
-
-    // Type constructors used in the upstream type parser.
-    kw_List: (_) => token(prec(2, "List")),
-    kw_IO: (_) => token(prec(2, "IO")),
 
     kw_let: (_) => token(prec(2, "let")),
     kw_in: (_) => token(prec(2, "in")),
@@ -838,13 +636,5 @@ module.exports = grammar({
     kw___pure: (_) => token(prec(2, "__pure")),
     kw___bind: (_) => token(prec(2, "__bind")),
     kw___readline: (_) => token(prec(2, "__readline")),
-
-    // ----------------------------------------------------------------------------
-    // Built-in base types (upstream keywords)
-    // ----------------------------------------------------------------------------
-    kw_Boolean: (_) => token(prec(2, "Boolean")),
-    kw_Integer: (_) => token(prec(2, "Integer")),
-    kw_Character: (_) => token(prec(2, "Character")),
-    kw_Unit: (_) => token(prec(2, "Unit")),
   },
 });
