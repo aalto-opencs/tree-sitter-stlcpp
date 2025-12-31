@@ -286,9 +286,11 @@ module.exports = grammar({
         field("if", $.kw_if),
         field("cond", $.expr),
         field("then", $.kw_then),
+        optional(repeat1(choice($.newline, $.comment))),
         field("then_expr", $.expr),
         optional(repeat1(choice($.newline, $.comment))),
         field("else", $.kw_else),
+        optional(repeat1(choice($.newline, $.comment))),
         field("else_expr", $.expr),
       ),
 
@@ -309,6 +311,7 @@ module.exports = grammar({
         field("colon", $.colon),
         field("type", $.type_expr),
         field("comma", $.comma),
+        optional(repeat1(choice($.newline, $.comment))),
         field("body", $.expr),
       ),
 
@@ -318,6 +321,7 @@ module.exports = grammar({
         field("tparam", $.type_identifier),
         optional(seq(field("colon", $.colon), field("sort", $.kw_Type))),
         field("comma", $.comma),
+        optional(repeat1(choice($.newline, $.comment))),
         field("body", $.expr),
       ),
 
@@ -394,17 +398,31 @@ module.exports = grammar({
         $.string_literal,
       ),
 
+    // Binary left-associative application (Haskell-style)
+    // `f x y` parses as `apply(apply(f, x), y)`
+    // Note: Cannot allow newlines before arguments without indentation sensitivity,
+    // as this creates ambiguity (parser can't tell if next line starts new statement)
     application: ($) =>
       prec.left(
         PREC.application,
         seq(
-          field("function", $.term_primary),
-          repeat1(field("argument", $.app_argument)),
+          field("function", $.application_or_primary),
+          field("argument", $.app_argument),
         ),
       ),
 
-    // application arguments can be term_primary or type_primary
-    app_argument: ($) => choice($.term_primary, $.type_primary),
+    // Application arguments: allow both term and type arguments
+    // Exclude type_app to prevent `f Int [...]` from parsing as `f (Int [...])`
+    // where `Int [...]` is treated as type application.
+    // This means type applications like `List Int` must be parenthesized in application position: `f (List Int)`
+    app_argument: ($) =>
+      choice(
+        $.term_primary,
+        alias(
+          choice($.type_identifier, $.type_parens, $.type_prod, $.type_list_brackets),
+          $.type_primary
+        ),
+      ),
 
     prefix_application: ($) =>
       prec.right(
@@ -455,12 +473,20 @@ module.exports = grammar({
         optional(
           seq(
             field("head", $.expr),
-            repeat(seq(field("comma", $.comma), field("tail", $.expr))),
+            repeat(
+              seq(
+                field("comma", $.comma),
+                optional(repeat1(choice($.newline, $.comment))),
+                field("tail", $.expr),
+              ),
+            ),
             optional(field("trailing_comma", $.comma)),
           ),
         ),
+        optional(repeat1(choice($.newline, $.comment))),
         field("colon", $.colon),
         field("type", $.type_expr),
+        optional(repeat1(choice($.newline, $.comment))),
         field("rbrack", $.rbrack),
       ),
 
@@ -633,9 +659,12 @@ module.exports = grammar({
         choice(
           // Special cases for operators starting with special chars
           "==",
+          ".",  // Function composition operator (when surrounded by whitespace)
+          "+",  // Addition and other plus-based operators
           seq("=", /[^.\s\w()\[\]{},:|=>]/, /[^.\s\w()\[\]{},:|=]*/),
           "-",
           seq("-", /[^.>\s\w()\[\]{},:|=+]/, /[^.\s\w()\[\]{},:|=+]*/),
+          seq("+", /[^.\s\w()\[\]{},:|=]/, /[^.\s\w()\[\]{},:|=]*/),  // Operators starting with +
           // General operator pattern (exclude =, +, -, and other special chars)
           /[^.\s\w()\[\]{},:|=+|-][^.\s\w()\[\]{},:|=+]*/,
         ),

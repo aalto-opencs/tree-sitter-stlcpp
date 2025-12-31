@@ -16,7 +16,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for all branches
+          fetch-depth: 0 # Fetch all history for all branches
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
@@ -126,6 +126,6 @@ jobs:
           echo "Update your \`extension.toml\` with:" >> $GITHUB_STEP_SUMMARY
           echo '```toml' >> $GITHUB_STEP_SUMMARY
           echo "[grammars.stlcpp]" >> $GITHUB_STEP_SUMMARY
-          echo "repository = \"https://github.com/$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')\"" >> $GITHUB_STEP_SUMMARY
+          echo "repository = \"$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')\"" >> $GITHUB_STEP_SUMMARY
           echo "rev = \"$(git rev-parse zed-release)\"" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
