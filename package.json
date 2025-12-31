@@ -1,0 +1,26 @@
+{
+  "name": "tree-sitter-stlcpp",
+  "version": "0.0.1",
+  "description": "Tree-sitter grammar for the stlcpp language",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "file://."
+  },
+  "keywords": [
+    "tree-sitter",
+    "parser",
+    "stlcpp"
+  ],
+  "main": "bindings/node",
+  "types": "bindings/node",
+  "files": [
+    "grammar.js",
+    "src/**",
+    "bindings/**"
+  ],
+  "dependencies": {
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-cli": "^0.22.0"
+  }
+}

@@ -1,0 +1,20 @@
+[package]
+name = "tree-sitter-stlcpp"
+version = "0.0.1"
+edition = "2021"
+license = "MIT"
+description = "Tree-sitter grammar for the stlcpp language"
+repository = "https://example.com/tree-sitter-stlcpp"
+
+[lib]
+name = "tree_sitter_stlcpp"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+tree-sitter = "0.22"
+
+[build-dependencies]
+cc = "1.0"
+
+[features]
+default = []

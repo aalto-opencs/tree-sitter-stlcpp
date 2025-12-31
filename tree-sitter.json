@@ -1,0 +1,27 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/tree-sitter.schema.json",
+
+  "grammars": [
+    {
+      "name": "stlcpp",
+      "scope": "source.stlcpp",
+      "file-types": ["stlc"],
+      "highlights": "queries/highlights.scm",
+      "path": "."
+    }
+  ],
+
+  "metadata": {
+    "version": "0.0.1",
+    "license": "MIT",
+    "description": "Tree-sitter grammar for the stlcpp language",
+    "authors": [
+      {
+        "name": "stlcpp contributors"
+      }
+    ],
+    "links": {
+      "repository": "https://example.com/tree-sitter-stlcpp"
+    }
+  }
+}
