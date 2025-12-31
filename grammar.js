@@ -5,8 +5,13 @@
 //   grammar can explicitly control where blank/comment-only lines are allowed.
 // - Add a top-level `_separator` composed of one-or-more newlines/comments and
 //   use it in `source_file` so inner constructs (like application) cannot
-//   span blank/comment-only lines and the parser doesn't shift final EOF
-//   trivia into erroneous parse states.
+//   span blank/comment-only lines.
+// - Make `term_primary` the canonical set of atomic term forms. Previously a
+//   separate `_atom` rule allowed full `expr` to be nested inside parentheses
+//   via `term_parens`. That permitted arbitrarily large expressions inside a
+//   parenthesised "atom" and made the `_atom`/`term_primary` split meaningless.
+//   This file therefore replaces usages of `_atom` with `term_primary` and
+//   changes `term_parens` to contain only a `term_primary` (not a full `expr`).
 //
 // Notes / design decisions:
 // - Horizontal whitespace (spaces, tabs, formfeed, CR) are left in `extras` so
@@ -17,10 +22,6 @@
 // - A small number of rules can still explicitly refer to `$.newline` if a
 //   physical line break must be enforced; otherwise newlines are consumed only
 //   by separators between top-level statements.
-//
-// This file is intended as a conservative change focused on EOF/newline handling
-// and should be followed by targeted fixes if any particular example requires
-// an explicit newline rule.
 
 const PREC = {
   assignment: 1,
@@ -67,6 +68,20 @@ module.exports = grammar({
     // are prevented from crossing blank/comment-only lines.
     _separator: ($) => repeat1(choice($.newline, $.comment)),
 
+    // Helper rules that allow optional leading inline trivia before certain
+    // expression shapes. These accept either one-or-more newlines/comments
+    // followed by the expected expression, or the expression without leading
+    // trivia. Using `repeat1` here avoids introducing a rule that can match the
+    // empty string (Tree-sitter disallows rules that can match empty strings
+    // unless they are the start rule).
+    maybe_infix: ($) =>
+      choice(
+        seq(repeat1(choice($.newline, $.comment)), $.infix_expression),
+        $.infix_expression,
+      ),
+    maybe_expr: ($) =>
+      choice(seq(repeat1(choice($.newline, $.comment)), $.expr), $.expr),
+
     // ----------------------------------------------------------------------------
     // Statements / top-level-ish forms
     // ----------------------------------------------------------------------------
@@ -95,14 +110,14 @@ module.exports = grammar({
           field("operator", $.operator),
           field("right", $.term_identifier_or_hole),
           field("equals", $.equals),
-          field("value", $.expr),
+          field("value", $.maybe_expr),
         ),
         seq(
           field("keyword", $.kw_prefix),
           field("operator", $.operator),
           field("param", $.term_identifier_or_hole),
           field("equals", $.equals),
-          field("value", $.expr),
+          field("value", $.maybe_expr),
         ),
       ),
 
@@ -140,7 +155,7 @@ module.exports = grammar({
             seq(
               field("name2", $.term_identifier),
               field("equals", $.equals),
-              field("value", $.expr),
+              field("value", $.maybe_expr),
             ),
           ),
         ),
@@ -153,7 +168,7 @@ module.exports = grammar({
         seq(
           field("name", $.term_identifier),
           field("equals", $.equals),
-          field("value", $.expr),
+          field("value", $.maybe_expr),
         ),
       ),
 
@@ -262,9 +277,9 @@ module.exports = grammar({
         field("let", $.kw_let),
         field("name", $.term_identifier),
         field("equals", $.equals),
-        field("value", $.infix_expression),
+        field("value", $.maybe_infix),
         field("in", $.kw_in),
-        field("body", $.expr),
+        field("body", $.maybe_expr),
       ),
 
     fun_expression: ($) =>
@@ -336,7 +351,8 @@ module.exports = grammar({
     // ----------------------------------------------------------------------------
     // Core expression layers
     // ----------------------------------------------------------------------------
-    _atom: ($) =>
+    // Make `term_primary` the canonical "atom" set used by application/infix.
+    term_primary: ($) =>
       choice(
         $.integer,
         $.boolean,
@@ -356,12 +372,13 @@ module.exports = grammar({
       prec.left(
         PREC.application,
         seq(
-          field("function", $._atom),
+          field("function", $.term_primary),
           repeat1(field("argument", $.app_argument)),
         ),
       ),
 
-    app_argument: ($) => choice($._atom, $.type_primary),
+    // application arguments can be term_primary or type_primary
+    app_argument: ($) => choice($.term_primary, $.type_primary),
 
     prefix_application: ($) =>
       prec.right(
@@ -386,14 +403,15 @@ module.exports = grammar({
         ),
       ),
 
-    application_or_primary: ($) => choice($.application, $._atom),
+    application_or_primary: ($) => choice($.application, $.term_primary),
 
-    term_primary: ($) => $._atom,
-
+    // Parentheses around terms should only allow a term_primary, not a full expr.
+    // This prevents parentheses from hiding arbitrarily large expressions in the
+    // "atom" position and clarifies the grammar layers.
     term_parens: ($) =>
       seq(
         field("lparen", $.lparen),
-        field("expr", $.expr),
+        field("term", $.term_primary),
         field("rparen", $.rparen),
       ),
 
@@ -632,6 +650,7 @@ module.exports = grammar({
     kw_infixr: (_) => token(prec(2, "infixr")),
     kw_prefix: (_) => token(prec(2, "prefix")),
 
+    // STLC++ builtins with double underscores — keep exact names to match upstream.
     kw___print: (_) => token(prec(2, "__print")),
     kw___pure: (_) => token(prec(2, "__pure")),
     kw___bind: (_) => token(prec(2, "__bind")),

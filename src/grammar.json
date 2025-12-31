@@ -60,6 +60,74 @@
         ]
       }
     },
+    "maybe_infix": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "REPEAT1",
+              "content": {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "newline"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "comment"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "SYMBOL",
+              "name": "infix_expression"
+            }
+          ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "infix_expression"
+        }
+      ]
+    },
+    "maybe_expr": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "REPEAT1",
+              "content": {
+                "type": "CHOICE",
+                "members": [
+                  {
+                    "type": "SYMBOL",
+                    "name": "newline"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "comment"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "SYMBOL",
+              "name": "expr"
+            }
+          ]
+        },
+        {
+          "type": "SYMBOL",
+          "name": "expr"
+        }
+      ]
+    },
     "_statement": {
       "type": "CHOICE",
       "members": [
@@ -166,7 +234,7 @@
               "name": "value",
               "content": {
                 "type": "SYMBOL",
-                "name": "expr"
+                "name": "maybe_expr"
               }
             }
           ]
@@ -211,7 +279,7 @@
               "name": "value",
               "content": {
                 "type": "SYMBOL",
-                "name": "expr"
+                "name": "maybe_expr"
               }
             }
           ]
@@ -345,7 +413,7 @@
                     "name": "value",
                     "content": {
                       "type": "SYMBOL",
-                      "name": "expr"
+                      "name": "maybe_expr"
                     }
                   }
                 ]
@@ -385,7 +453,7 @@
             "name": "value",
             "content": {
               "type": "SYMBOL",
-              "name": "expr"
+              "name": "maybe_expr"
             }
           }
         ]
@@ -786,7 +854,7 @@
           "name": "value",
           "content": {
             "type": "SYMBOL",
-            "name": "infix_expression"
+            "name": "maybe_infix"
           }
         },
         {
@@ -802,7 +870,7 @@
           "name": "body",
           "content": {
             "type": "SYMBOL",
-            "name": "expr"
+            "name": "maybe_expr"
           }
         }
       ]
@@ -1211,7 +1279,7 @@
         }
       ]
     },
-    "_atom": {
+    "term_primary": {
       "type": "CHOICE",
       "members": [
         {
@@ -1275,7 +1343,7 @@
             "name": "function",
             "content": {
               "type": "SYMBOL",
-              "name": "_atom"
+              "name": "term_primary"
             }
           },
           {
@@ -1297,7 +1365,7 @@
       "members": [
         {
           "type": "SYMBOL",
-          "name": "_atom"
+          "name": "term_primary"
         },
         {
           "type": "SYMBOL",
@@ -1380,13 +1448,9 @@
         },
         {
           "type": "SYMBOL",
-          "name": "_atom"
+          "name": "term_primary"
         }
       ]
-    },
-    "term_primary": {
-      "type": "SYMBOL",
-      "name": "_atom"
     },
     "term_parens": {
       "type": "SEQ",
@@ -1401,10 +1465,10 @@
         },
         {
           "type": "FIELD",
-          "name": "expr",
+          "name": "term",
           "content": {
             "type": "SYMBOL",
-            "name": "expr"
+            "name": "term_primary"
           }
         },
         {

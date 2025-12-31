@@ -8,55 +8,11 @@
       "required": true,
       "types": [
         {
-          "type": "boolean",
-          "named": true
-        },
-        {
-          "type": "char_literal",
-          "named": true
-        },
-        {
-          "type": "injection",
-          "named": true
-        },
-        {
-          "type": "integer",
-          "named": true
-        },
-        {
-          "type": "io_primitive",
-          "named": true
-        },
-        {
-          "type": "list_literal",
-          "named": true
-        },
-        {
-          "type": "nil_term",
-          "named": true
-        },
-        {
-          "type": "pair",
-          "named": true
-        },
-        {
-          "type": "string_literal",
-          "named": true
-        },
-        {
-          "type": "term_identifier",
-          "named": true
-        },
-        {
-          "type": "term_parens",
+          "type": "term_primary",
           "named": true
         },
         {
           "type": "type_primary",
-          "named": true
-        },
-        {
-          "type": "unit",
           "named": true
         }
       ]
@@ -81,51 +37,7 @@
         "required": true,
         "types": [
           {
-            "type": "boolean",
-            "named": true
-          },
-          {
-            "type": "char_literal",
-            "named": true
-          },
-          {
-            "type": "injection",
-            "named": true
-          },
-          {
-            "type": "integer",
-            "named": true
-          },
-          {
-            "type": "io_primitive",
-            "named": true
-          },
-          {
-            "type": "list_literal",
-            "named": true
-          },
-          {
-            "type": "nil_term",
-            "named": true
-          },
-          {
-            "type": "pair",
-            "named": true
-          },
-          {
-            "type": "string_literal",
-            "named": true
-          },
-          {
-            "type": "term_identifier",
-            "named": true
-          },
-          {
-            "type": "term_parens",
-            "named": true
-          },
-          {
-            "type": "unit",
+            "type": "term_primary",
             "named": true
           }
         ]
@@ -145,51 +57,7 @@
           "named": true
         },
         {
-          "type": "boolean",
-          "named": true
-        },
-        {
-          "type": "char_literal",
-          "named": true
-        },
-        {
-          "type": "injection",
-          "named": true
-        },
-        {
-          "type": "integer",
-          "named": true
-        },
-        {
-          "type": "io_primitive",
-          "named": true
-        },
-        {
-          "type": "list_literal",
-          "named": true
-        },
-        {
-          "type": "nil_term",
-          "named": true
-        },
-        {
-          "type": "pair",
-          "named": true
-        },
-        {
-          "type": "string_literal",
-          "named": true
-        },
-        {
-          "type": "term_identifier",
-          "named": true
-        },
-        {
-          "type": "term_parens",
-          "named": true
-        },
-        {
-          "type": "unit",
+          "type": "term_primary",
           "named": true
         }
       ]
@@ -399,7 +267,7 @@
         "required": false,
         "types": [
           {
-            "type": "expr",
+            "type": "maybe_expr",
             "named": true
           }
         ]
@@ -528,7 +396,7 @@
         "required": true,
         "types": [
           {
-            "type": "expr",
+            "type": "maybe_expr",
             "named": true
           }
         ]
@@ -1030,7 +898,7 @@
         "required": true,
         "types": [
           {
-            "type": "expr",
+            "type": "maybe_expr",
             "named": true
           }
         ]
@@ -1080,7 +948,7 @@
         "required": true,
         "types": [
           {
-            "type": "infix_expression",
+            "type": "maybe_infix",
             "named": true
           }
         ]
@@ -1171,6 +1039,52 @@
           }
         ]
       }
+    }
+  },
+  {
+    "type": "maybe_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "expr",
+          "named": true
+        },
+        {
+          "type": "newline",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "maybe_infix",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "comment",
+          "named": true
+        },
+        {
+          "type": "infix_expression",
+          "named": true
+        },
+        {
+          "type": "newline",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -1299,16 +1213,6 @@
     "type": "term_parens",
     "named": true,
     "fields": {
-      "expr": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "expr",
-            "named": true
-          }
-        ]
-      },
       "lparen": {
         "multiple": false,
         "required": true,
@@ -1325,6 +1229,16 @@
         "types": [
           {
             "type": "rparen",
+            "named": true
+          }
+        ]
+      },
+      "term": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "term_primary",
             "named": true
           }
         ]
@@ -1883,7 +1797,7 @@
         "required": true,
         "types": [
           {
-            "type": "expr",
+            "type": "maybe_expr",
             "named": true
           }
         ]
