@@ -1,0 +1,35 @@
+import fib
+
+greet : IO Unit
+greet = io.bind String Unit
+    (fun s : String, io.print ("Hello " <> s <> "!"))
+    io.readline
+
+greet2 : IO Unit
+greet2 = io.bind String Unit
+    (fun s : String,
+        io.bind Unit Unit
+        (fun x : Unit, io.bind String Unit
+            (fun s2 : String, io.print ("Hello " <> s2 <> "!!!"))
+            io.readline)
+        (io.print ("Hello " <> s <> "!\nWhat is your name???\n")))
+    io.readline
+
+unwrap : (Unit + Int) -> Int
+unwrap = fun opt : Unit + Int, case opt of
+    | inl x => panic Int "unwrap failed womp womp"
+    | inr n => n
+
+calcfib : IO Unit
+calcfib = io.bind String Unit
+    (fun s : String, io.print (int.to_string (fib (unwrap (int.parse s)))))
+    io.readline
+
+main : IO Unit
+main = io.bind Unit Unit (fun _ : Unit, greet) (io.print "What is your name?\n")
+
+readInt : IO Int
+readInt = io.bind String Int (fun s : String, io.pure Int <| unwrap <| int.parse s) io.readline
+
+rng : IO Unit
+rng = io.bind RandomState Unit (fun x : Int, io.print <| int.to_string <| (fun x : (Int, Int), fst x) <| random.rng x) readInt

@@ -26,8 +26,12 @@
 const PREC = {
   assignment: 1,
 
-  // Type-level arrow precedence is handled in the type grammar.
+  // Type-level precedences (higher binds tighter):
+  // arrow: 2 (lowest, right-associative)
+  // sum: 3 (binds tighter than arrow, left-associative)
+  // So "A -> B + C -> D" parses as "A -> (B + C) -> D"
   arrow: 2,
+  sum: 3,
 
   // Term-level precedence ladder:
   //   expr -> if/let/fun/case... OR infix_expression
@@ -35,9 +39,9 @@ const PREC = {
   //   application -> term_primary (argument)+
   //
   // Keep custom operators at a single precedence level for stable parsing.
-  prefix: 3,
-  infix: 4,
-  application: 5,
+  prefix: 4,
+  infix: 5,
+  application: 6,
 };
 
 module.exports = grammar({
@@ -175,13 +179,14 @@ module.exports = grammar({
     // ----------------------------------------------------------------------------
     // Types
     // ----------------------------------------------------------------------------
-    // `type` is the top-level entrypoint for type syntax. We parse three forms:
+    // `type` is the top-level entrypoint for type syntax. We parse four forms:
     //  - `forall` quantifiers
     //  - right-associative arrow chains (A -> B -> C)
+    //  - left-associative sum types (A + B + C)
     //  - primary types (identifiers, parens, products, lists, apps)
     //
-    // Arrow chains are implemented as a right-associative sequence built from
-    // `type_primary` so common surface forms like `Int -> Int` parse robustly.
+    // Precedence: forall > arrow > sum > primary
+    // So "A -> B + C -> D" parses as "A -> (B + C) -> D"
     type: ($) => $.type_expr,
     type_expr: ($) =>
       choice(
@@ -194,21 +199,35 @@ module.exports = grammar({
           field("body", $.type_expr),
         ),
 
-        // Right-associative arrow chain built from primaries.
+        // Right-associative arrow chain built from sum expressions.
         // This accepts `A -> B` and `A -> B -> C` etc., associating to the right.
         prec.right(
           PREC.arrow,
           seq(
-            field("left", $.type_primary),
+            field("left", $.type_sum_or_primary),
             repeat(seq(field("arrow", $.arrow), field("right", $.type))),
           ),
         ),
 
-        // Simple primary type
+        // Sum or primary
+        $.type_sum_or_primary,
+      ),
+
+    // Sum types are left-associative: A + B + C parses as (A + B) + C
+    type_sum_or_primary: ($) =>
+      choice(
+        prec.left(
+          PREC.sum,
+          seq(
+            field("left", $.type_primary),
+            repeat1(seq(field("plus", $.plus), field("right", $.type_primary))),
+          ),
+        ),
         $.type_primary,
       ),
 
-    type_sum: ($) => $.type_primary,
+    // Deprecated alias for backward compatibility
+    type_sum: ($) => $.type_sum_or_primary,
 
     type_primary: ($) =>
       choice(
@@ -268,6 +287,7 @@ module.exports = grammar({
         field("cond", $.expr),
         field("then", $.kw_then),
         field("then_expr", $.expr),
+        optional(repeat1(choice($.newline, $.comment))),
         field("else", $.kw_else),
         field("else_expr", $.expr),
       ),
@@ -307,7 +327,10 @@ module.exports = grammar({
         field("scrutinee", $.expr),
         field("of", $.kw_of),
         optional(field("lbrace", $.lbrace)),
-        repeat1($.case_arm),
+        optional(repeat1(choice($.newline, $.comment))),
+        $.case_arm,
+        repeat(seq(repeat1(choice($.newline, $.comment)), $.case_arm)),
+        optional(repeat1(choice($.newline, $.comment))),
         optional(field("rbrace", $.rbrace)),
       ),
 
@@ -317,7 +340,7 @@ module.exports = grammar({
         field("ctor", choice($.kw_inl, $.kw_inr)),
         field("binder", $.term_identifier_or_hole),
         field("arrow", $.fat_arrow),
-        field("body", $.expr),
+        field("body", $.maybe_expr),
       ),
 
     lcase_expression: ($) =>
@@ -326,7 +349,10 @@ module.exports = grammar({
         field("scrutinee", $.expr),
         field("of", $.kw_of),
         optional(field("lbrace", $.lbrace)),
-        repeat1($.lcase_arm),
+        optional(repeat1(choice($.newline, $.comment))),
+        $.lcase_arm,
+        repeat(seq(repeat1(choice($.newline, $.comment)), $.lcase_arm)),
+        optional(repeat1(choice($.newline, $.comment))),
         optional(field("rbrace", $.rbrace)),
       ),
 
@@ -336,7 +362,7 @@ module.exports = grammar({
           field("bar", $.bar),
           field("nil", $.kw_nil),
           field("arrow", $.fat_arrow),
-          field("body", $.expr),
+          field("body", $.maybe_expr),
         ),
         seq(
           field("bar", $.bar),
@@ -344,7 +370,7 @@ module.exports = grammar({
           field("head", $.term_identifier_or_hole),
           field("tail", $.term_identifier_or_hole),
           field("arrow", $.fat_arrow),
-          field("body", $.expr),
+          field("body", $.maybe_expr),
         ),
       ),
 
@@ -405,13 +431,12 @@ module.exports = grammar({
 
     application_or_primary: ($) => choice($.application, $.term_primary),
 
-    // Parentheses around terms should only allow a term_primary, not a full expr.
-    // This prevents parentheses from hiding arbitrarily large expressions in the
-    // "atom" position and clarifies the grammar layers.
+    // Parentheses around terms allow full expressions to support grouping in infix
+    // chains and other contexts (e.g., `(fun x, e)` or `(a *> b *> c)`).
     term_parens: ($) =>
       seq(
         field("lparen", $.lparen),
-        field("term", $.term_primary),
+        field("term", $.expr),
         field("rparen", $.rparen),
       ),
 
@@ -601,12 +626,18 @@ module.exports = grammar({
 
     fat_arrow: (_) => token("=>"),
 
+    plus: (_) => token("+"),
+
     operator: (_) =>
       token(
         choice(
+          // Special cases for operators starting with special chars
+          "==",
+          seq("=", /[^.\s\w()\[\]{},:|=>]/, /[^.\s\w()\[\]{},:|=]*/),
           "-",
-          seq("-", /[^.>\s\w()\[\]{},:|=]/, /[^.\s\w()\[\]{},:|=]*/),
-          /[^.\s\w()\[\]{},:|=|-][^.\s\w()\[\]{},:|=]*/,
+          seq("-", /[^.>\s\w()\[\]{},:|=+]/, /[^.\s\w()\[\]{},:|=+]*/),
+          // General operator pattern (exclude =, +, -, and other special chars)
+          /[^.\s\w()\[\]{},:|=+|-][^.\s\w()\[\]{},:|=+]*/,
         ),
       ),
 

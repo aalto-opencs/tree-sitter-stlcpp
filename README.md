@@ -64,12 +64,16 @@ This grammar aims to follow the upstream STLC++ surface syntax (see the upstream
   - `(A, B)`
 - List type sugar:
   - `[T]`
+- Sum types (left-associative):
+  - `A + B`
+  - `[Char] + (Unit, [Char])`
 - Type constructors:
   - `List T`, `IO T`
 - Universal quantification:
   - `forall T, TypeExpr`
 - Right-associative arrows:
   - `A -> B -> C`
+  - Note: `A -> B + C -> D` parses as `A -> (B + C) -> D` (arrow binds looser than sum)
 
 ## Comment syntax
 
@@ -79,19 +83,21 @@ This grammar aims to follow the upstream STLC++ surface syntax (see the upstream
 
 This matches the upstream STLC++ parser (there are no `--` comments).
 
-## Generated files and publishing
+## Generated files
 
-Many consumers (including Zed’s grammar build pipeline) expect the grammar repository to include **generated C sources** under `src/`, especially:
+The C parser and metadata files under `src/` are **build artifacts** generated from `grammar.js`:
 
-- `src/parser.c`
-- `src/node-types.json`
-- `src/grammar.json`
+- `src/parser.c` - Generated C parser implementation
+- `src/node-types.json` - Node type definitions
+- `src/grammar.json` - Compiled grammar metadata
 
-These files are generated from `grammar.js` via the Tree-sitter CLI:
+These files are **not checked into the repository**. They are generated during the build process via:
 
-- `tree-sitter generate`
+```bash
+tree-sitter generate
+```
 
-For a publishable grammar repo, keep the generated files committed so downstream consumers can build without additional steps.
+The `package.nix` automatically runs `tree-sitter generate` during the build, so no pre-generated files are needed.
 
 ## Queries
 
@@ -101,17 +107,53 @@ Important rules for editor integrations:
 - Queries must only reference node types that actually exist in the compiled grammar.
 - Avoid literal-token patterns in queries when targeting Zed; prefer named token nodes such as `(equals)`, `(lparen)`, `(rparen)`, etc.
 
+## Building with Nix
+
+A `package.nix` is provided for building the grammar with Nix:
+
+```bash
+nix-build -E 'with import <nixpkgs> {}; callPackage ./package.nix {}'
+```
+
+The Nix package compiles the C parser and installs:
+- Shared library (`parser.so`)
+- Grammar metadata files for tooling
+- Runs test suite during build (see Testing below)
+
+## Testing
+
+The `test/` directory contains a test suite with fixtures:
+
+- **`test/fixtures/`** - Examples that parse without errors (used in CI/builds)
+  - `basic_declaration.stlc` - Type declarations and value definitions
+  - `sum_types.stlc` - Sum types (`A + B`) and case analysis
+  - `list_case.stlc` - List case expressions with `nil`/`cons` patterns
+
+- **`test/fixtures-wip/`** - Examples with known parsing issues
+  - Multi-line function applications
+  - Complex operator patterns
+  - See `test/fixtures-wip/README.md` for details
+
+Run the test suite:
+```bash
+./test/test.sh
+```
+
+All tests in `fixtures/` must pass. The `fixtures-wip/` directory tracks progress on remaining grammar limitations.
+
 ## Local development notes
 
 Typical workflow:
 
 1. Edit `grammar.js`
-2. Run `tree-sitter generate`
+2. Run `tree-sitter generate` (generates `src/` directory locally)
 3. Validate:
    - `tree-sitter parse <file.stlc>`
-   - `tree-sitter test` (if you maintain corpus tests)
-4. Commit changes (including regenerated `src/*`)
-5. Update the Zed extension’s pinned grammar revision (`extension.toml`) to the new commit SHA.
+   - `./test/test.sh` (run test suite)
+4. Commit only `grammar.js` changes (not `src/` - it's gitignored)
+5. Update the Zed extension's pinned grammar revision (`extension.toml`) to the new commit SHA.
+
+**Note:** The `src/` directory is generated locally for development but is not committed to the repository. The Nix build and CI will generate it automatically from `grammar.js`.
 
 ## Upstream references
 
