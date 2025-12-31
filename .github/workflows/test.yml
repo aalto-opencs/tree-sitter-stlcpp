@@ -1,0 +1,28 @@
+name: Run tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Build and test grammar
+        run: |
+          nix-build -A packages.tree-sitter-stlcpp
+
+      - name: Show build results
+        run: |
+          ls -lh result/
+          ls -lh result/parser/

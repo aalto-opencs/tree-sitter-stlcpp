@@ -112,13 +112,33 @@ Important rules for editor integrations:
 A `package.nix` is provided for building the grammar with Nix:
 
 ```bash
-nix-build -E 'with import <nixpkgs> {}; callPackage ./package.nix {}'
+nix-build -A packages.tree-sitter-stlcpp
 ```
 
 The Nix package compiles the C parser and installs:
 - Shared library (`parser.so`)
 - Grammar metadata files for tooling
 - Runs test suite during build (see Testing below)
+
+## Using in Zed Extensions
+
+**For Zed extensions**, use the `zed-release` branch which includes generated `src/` files:
+
+```toml
+[grammars.stlcpp]
+repository = "https://github.com/aalto-opencs/tree-sitter-stlcpp"
+rev = "xxx"  # Use a commit SHA from the zed-release branch
+```
+
+The `zed-release` branch is automatically maintained by GitHub Actions and contains:
+- All source files from `main` (`grammar.js`, etc.)
+- Generated parser files (`src/parser.c`, `src/grammar.json`, etc.)
+
+**Why two branches?**
+- **`main`**: Clean development - `src/` is a build artifact (gitignored)
+- **`zed-release`**: Publishing - `src/` committed for Zed's build process
+
+See `.github/workflows/README.md` for details on the automated publishing process.
 
 ## Testing
 

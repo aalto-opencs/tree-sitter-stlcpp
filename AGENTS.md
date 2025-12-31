@@ -70,10 +70,19 @@ Testing strategy
 
 Editing & committing rules
 - Edit only `grammar.js` and any support files (`queries/`, `test/`) by hand.
-- **DO NOT commit generated artifacts** (`src/` directory). The `src/` directory is gitignored and generated during build.
-- After `tree-sitter generate` (for local testing), commit only your `grammar.js` changes.
+- **DO NOT commit generated artifacts** (`src/` directory) to the `main` branch. The `src/` directory is gitignored.
+- After `tree-sitter generate` (for local testing), commit only your `grammar.js` changes to `main`.
 - The Nix build (`package.nix`) automatically runs `tree-sitter generate` during the build process.
 - Keep commit messages focused: explain the grammar change and include a short rationale (e.g., "Add support for sum types at type level" or "Allow newline after '=>' in case arms").
+
+Publishing to Zed (automated)
+- When changes are pushed to `main`, GitHub Actions automatically:
+  1. Builds the grammar with Nix (validates the build)
+  2. Generates parser files with `tree-sitter generate`
+  3. Commits the generated `src/` to the `zed-release` branch
+- The `zed-release` branch is for Zed extensions - it includes `src/` so Zed can compile the grammar to WASM.
+- **Never commit directly to `zed-release`** - it's managed by CI.
+- Zed extensions should reference the `zed-release` branch in their `extension.toml`.
 
 Conservative change guidelines
 - If you are unsure about a big change (global trivia, operator fixity refactor, etc.), make a small local change first and run the example suite. Large refactors are riskier — prefer an iterative approach with many small commits so regressions are easy to bisect.

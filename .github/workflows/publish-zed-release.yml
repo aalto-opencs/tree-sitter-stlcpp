@@ -1,0 +1,131 @@
+name: Publish Zed Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for all branches
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Build grammar with Nix
+        run: |
+          # Build the grammar - this generates src/ in the build directory
+          nix-build -A packages.tree-sitter-stlcpp
+
+          # The generated files are in the build output
+          echo "Build successful, checking for generated files..."
+          if [ ! -f result/share/tree-sitter-stlcpp/grammar.json ]; then
+            echo "Error: Generated files not found!"
+            exit 1
+          fi
+
+      - name: Generate parser files
+        run: |
+          # We need to generate src/ locally for the zed-release branch
+          # Install Node.js for tree-sitter
+          curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+
+          # Install tree-sitter CLI
+          npm install -g tree-sitter-cli
+
+          # Generate the parser
+          tree-sitter generate
+
+          # Verify src/ was created
+          if [ ! -d src ] || [ ! -f src/parser.c ]; then
+            echo "Error: Failed to generate src/parser.c"
+            exit 1
+          fi
+
+          echo "Successfully generated parser files:"
+          ls -lh src/
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit to zed-release branch
+        run: |
+          # Get current commit info for the message
+          COMMIT_SHA=$(git rev-parse HEAD)
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+
+          # Check if zed-release branch exists
+          if git ls-remote --exit-code --heads origin zed-release; then
+            echo "Checking out existing zed-release branch"
+            git fetch origin zed-release:zed-release
+            git checkout zed-release
+
+            # Merge main into zed-release (prefer main's grammar.js)
+            git merge --no-commit main || true
+            git checkout main -- grammar.js package.nix CLAUDE.md README.md test/
+            git checkout main -- .gitignore || true
+          else
+            echo "Creating new zed-release branch"
+            git checkout -b zed-release
+          fi
+
+          # Copy the generated src/ directory
+          # Remove src/ from .gitignore for this branch
+          if grep -q "^src/$" .gitignore; then
+            sed -i '/^src\/$/d' .gitignore
+            git add .gitignore
+          fi
+
+          # Add the generated files
+          git add -f src/
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit - src/ is already up to date"
+          else
+            # Commit the changes with a multi-line message
+            COMMIT_MESSAGE="Update generated parser from main@${COMMIT_SHA:0:7}
+
+          Generated from main branch commit: ${COMMIT_SHA}
+          Original commit message: ${COMMIT_MSG}
+
+          This commit contains generated files (src/) for Zed extension compatibility.
+          The source of truth is grammar.js on the main branch."
+
+            git commit -m "$COMMIT_MESSAGE"
+
+            # Push to zed-release branch
+            git push origin zed-release
+
+            echo "Successfully updated zed-release branch!"
+            echo "Zed extensions should use: rev = \"$(git rev-parse HEAD)\""
+          fi
+
+      - name: Create release summary
+        if: success()
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Successfully built and published zed-release branch" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### For Zed Extension" >> $GITHUB_STEP_SUMMARY
+          echo "Update your \`extension.toml\` with:" >> $GITHUB_STEP_SUMMARY
+          echo '```toml' >> $GITHUB_STEP_SUMMARY
+          echo "[grammars.stlcpp]" >> $GITHUB_STEP_SUMMARY
+          echo "repository = \"https://github.com/$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')\"" >> $GITHUB_STEP_SUMMARY
+          echo "rev = \"$(git rev-parse zed-release)\"" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
