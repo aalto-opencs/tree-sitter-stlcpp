@@ -1,0 +1,341 @@
+================================================================================
+Simple if-then-else
+================================================================================
+
+result = if n < 2 then n else 0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (if_expression
+          if: (kw_if)
+          cond: (expr
+            (infix_expression
+              left: (application_or_primary
+                (term_primary
+                  (term_identifier)))
+              operator: (operator)
+              right: (application_or_primary
+                (term_primary
+                  (integer)))))
+          then: (kw_then)
+          then_expr: (expr
+            (infix_expression
+              left: (application_or_primary
+                (term_primary
+                  (term_identifier)))))
+          else: (kw_else)
+          else_expr: (expr
+            (infix_expression
+              left: (application_or_primary
+                (term_primary
+                  (integer)))))))))
+  (newline))
+
+================================================================================
+Multi-line if-then-else
+================================================================================
+
+fib = fun n : Integer,
+    if n < 2 then
+        n
+    else
+        fib (n - 1) + fib (n - 2)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (fun_expression
+          fun: (kw_fun)
+          param: (term_identifier_or_hole)
+          colon: (colon)
+          type: (type_expr
+            left: (type_sum_or_primary
+              (type_primary
+                (type_identifier))))
+          comma: (comma)
+          (newline)
+          body: (expr
+            (if_expression
+              if: (kw_if)
+              cond: (expr
+                (infix_expression
+                  left: (application_or_primary
+                    (term_primary
+                      (term_identifier)))
+                  operator: (operator)
+                  right: (application_or_primary
+                    (term_primary
+                      (integer)))))
+              then: (kw_then)
+              (newline)
+              then_expr: (expr
+                (infix_expression
+                  left: (application_or_primary
+                    (term_primary
+                      (term_identifier)))))
+              (newline)
+              else: (kw_else)
+              (newline)
+              else_expr: (expr
+                (infix_expression
+                  left: (application_or_primary
+                    (application
+                      function: (application_or_primary
+                        (term_primary
+                          (term_identifier)))
+                      argument: (app_argument
+                        (term_primary
+                          (term_parens
+                            lparen: (lparen)
+                            term: (expr
+                              (infix_expression
+                                left: (application_or_primary
+                                  (term_primary
+                                    (term_identifier)))
+                                operator: (operator)
+                                right: (application_or_primary
+                                  (term_primary
+                                    (integer)))))
+                            rparen: (rparen))))))
+                  operator: (operator)
+                  right: (application_or_primary
+                    (application
+                      function: (application_or_primary
+                        (term_primary
+                          (term_identifier)))
+                      argument: (app_argument
+                        (term_primary
+                          (term_parens
+                            lparen: (lparen)
+                            term: (expr
+                              (infix_expression
+                                left: (application_or_primary
+                                  (term_primary
+                                    (term_identifier)))
+                                operator: (operator)
+                                right: (application_or_primary
+                                  (term_primary
+                                    (integer)))))
+                            rparen: (rparen))))))))))))))
+  (newline))
+
+================================================================================
+Nested if-else (else if pattern)
+================================================================================
+
+test = if n == 1 then
+    cons 1 (nil Integer)
+  else if n == 2 then
+    cons 1 (nil Integer)
+  else
+    cons 1 (nil Integer)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (if_expression
+          if: (kw_if)
+          cond: (expr
+            (infix_expression
+              left: (application_or_primary
+                (term_primary
+                  (term_identifier)))
+              operator: (operator)
+              right: (application_or_primary
+                (term_primary
+                  (integer)))))
+          then: (kw_then)
+          (newline)
+          then_expr: (expr
+            (infix_expression
+              left: (application_or_primary
+                (application
+                  function: (application_or_primary
+                    (application
+                      function: (application_or_primary
+                        (term_primary
+                          (term_identifier)))
+                      argument: (app_argument
+                        (term_primary
+                          (integer)))))
+                  argument: (app_argument
+                    (term_primary
+                      (term_parens
+                        lparen: (lparen)
+                        term: (expr
+                          (infix_expression
+                            left: (application_or_primary
+                              (term_primary
+                                (nil_term
+                                  nil: (kw_nil)
+                                  type: (type_primary
+                                    (type_identifier)))))))
+                        rparen: (rparen))))))))
+          (newline)
+          else: (kw_else)
+          else_expr: (expr
+            (if_expression
+              if: (kw_if)
+              cond: (expr
+                (infix_expression
+                  left: (application_or_primary
+                    (term_primary
+                      (term_identifier)))
+                  operator: (operator)
+                  right: (application_or_primary
+                    (term_primary
+                      (integer)))))
+              then: (kw_then)
+              (newline)
+              then_expr: (expr
+                (infix_expression
+                  left: (application_or_primary
+                    (application
+                      function: (application_or_primary
+                        (application
+                          function: (application_or_primary
+                            (term_primary
+                              (term_identifier)))
+                          argument: (app_argument
+                            (term_primary
+                              (integer)))))
+                      argument: (app_argument
+                        (term_primary
+                          (term_parens
+                            lparen: (lparen)
+                            term: (expr
+                              (infix_expression
+                                left: (application_or_primary
+                                  (term_primary
+                                    (nil_term
+                                      nil: (kw_nil)
+                                      type: (type_primary
+                                        (type_identifier)))))))
+                            rparen: (rparen))))))))
+              (newline)
+              else: (kw_else)
+              (newline)
+              else_expr: (expr
+                (infix_expression
+                  left: (application_or_primary
+                    (application
+                      function: (application_or_primary
+                        (application
+                          function: (application_or_primary
+                            (term_primary
+                              (term_identifier)))
+                          argument: (app_argument
+                            (term_primary
+                              (integer)))))
+                      argument: (app_argument
+                        (term_primary
+                          (term_parens
+                            lparen: (lparen)
+                            term: (expr
+                              (infix_expression
+                                left: (application_or_primary
+                                  (term_primary
+                                    (nil_term
+                                      nil: (kw_nil)
+                                      type: (type_primary
+                                        (type_identifier)))))))
+                            rparen: (rparen))))))))))))))
+  (newline))
+
+================================================================================
+Case expression with nested if
+================================================================================
+
+either = fun x : Int + Bool, case x of
+    | inl n => n
+    | inr b => if b then 1 else 0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (fun_expression
+          fun: (kw_fun)
+          param: (term_identifier_or_hole)
+          colon: (colon)
+          type: (type_expr
+            left: (type_sum_or_primary
+              left: (type_primary
+                (type_identifier))
+              plus: (plus)
+              right: (type_primary
+                (type_identifier))))
+          comma: (comma)
+          body: (expr
+            (case_expression
+              case: (kw_case)
+              scrutinee: (expr
+                (infix_expression
+                  left: (application_or_primary
+                    (term_primary
+                      (term_identifier)))))
+              of: (kw_of)
+              (newline)
+              (case_arm
+                bar: (bar)
+                ctor: (kw_inl)
+                binder: (term_identifier_or_hole)
+                arrow: (fat_arrow)
+                body: (maybe_expr
+                  (expr
+                    (infix_expression
+                      left: (application_or_primary
+                        (term_primary
+                          (term_identifier)))))))
+              (newline)
+              (case_arm
+                bar: (bar)
+                ctor: (kw_inr)
+                binder: (term_identifier_or_hole)
+                arrow: (fat_arrow)
+                body: (maybe_expr
+                  (expr
+                    (if_expression
+                      if: (kw_if)
+                      cond: (expr
+                        (infix_expression
+                          left: (application_or_primary
+                            (term_primary
+                              (term_identifier)))))
+                      then: (kw_then)
+                      then_expr: (expr
+                        (infix_expression
+                          left: (application_or_primary
+                            (term_primary
+                              (integer)))))
+                      else: (kw_else)
+                      else_expr: (expr
+                        (infix_expression
+                          left: (application_or_primary
+                            (term_primary
+                              (integer)))))))))
+              (newline))))))))

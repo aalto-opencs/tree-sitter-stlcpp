@@ -9,15 +9,15 @@ High-level goals
 - Mirror upstream parser semantics (Rust/nom implementation) where useful, especially for keywords and builtin names.
 
 Repository layout (important files)
-- `grammar.js` — the single source-of-truth Tree-sitter grammar (JavaScript DSL). Edit this file. **This is the only source file committed to the repo.**
-- `src/` — generated directory (NOT in git). Contains `parser.c`, `grammar.json`, `node-types.json` created by `tree-sitter generate`.
+- `grammar.js` — the single source-of-truth Tree-sitter grammar (JavaScript DSL). Edit this file.
+- `src/` — generated directory (COMMITTED to git). Contains `parser.c`, `grammar.json`, `node-types.json` created by `tree-sitter generate`.
   - `src/parser.c` — generated C parser implementation; don't edit this manually.
   - `src/grammar.json` — generated; represents the compiled grammar.
   - `src/node-types.json` — generated; contains node naming metadata used by editors & highlight rules.
+  - **IMPORTANT:** After editing `grammar.js`, always run `tree-sitter generate` and commit the updated `src/` files.
 - `queries/highlights.scm` — optional highlight queries (may or may not exist); keep them in sync with node names.
-- `test/fixtures/` — test cases that must parse without ERROR nodes.
-- `test/fixtures-wip/` — examples with known parsing issues (for tracking improvements).
-- `../stlcpp/examples/` — (upstream examples) used for testing examples parsing.
+- `test/corpus/` — corpus test cases in tree-sitter standard format (53 tests covering all features).
+- `../stlcpp/examples/` — (upstream examples) used for manual testing and validation.
 
 Basic workflow (edit → generate → test)
 1. Read and understand `grammar.js`.
@@ -63,48 +63,51 @@ Debugging parse output
   - "conflicts" — ambiguous productions requiring `conflicts([...])` or additional precedence.
 
 Testing strategy
+- Run the corpus test suite with `tree-sitter test` to ensure all 53 tests pass.
 - Start by parsing individual examples you changed behavior for. Use `tree-sitter parse` and check for `ERROR` nodes.
-- Run the test suite with `./test/test.sh` to ensure all fixtures in `test/fixtures/` still pass.
 - After local success, run a sweep through `../stlcpp/examples` and collect any files that still produce `ERROR` nodes. Report both the filename and a one-line parse snippet showing the ERROR location.
-- If you make changes that rename node types, update `queries/highlights.scm` accordingly.
+- If you make changes that rename node types, update `queries/highlights.scm` and run `tree-sitter test --update` to regenerate expected trees.
 
 Editing & committing rules
 - Edit only `grammar.js` and any support files (`queries/`, `test/`) by hand.
-- **DO NOT commit generated artifacts** (`src/` directory) to the `main` branch. The `src/` directory is gitignored.
-- After `tree-sitter generate` (for local testing), commit only your `grammar.js` changes to `main`.
-- The Nix build (`package.nix`) automatically runs `tree-sitter generate` during the build process.
+- **ALWAYS commit generated artifacts** (`src/` directory) along with your grammar changes.
+  - After editing `grammar.js`, run `tree-sitter generate` to regenerate `src/`
+  - Commit both `grammar.js` and the updated `src/` files together
+- The `src/` directory is part of the repository for direct use by editor extensions.
 - Keep commit messages focused: explain the grammar change and include a short rationale (e.g., "Add support for sum types at type level" or "Allow newline after '=>' in case arms").
 
-Publishing to Zed (automated)
-- When changes are pushed to `main`, GitHub Actions automatically:
-  1. Builds the grammar with Nix (validates the build)
-  2. Generates parser files with `tree-sitter generate`
-  3. Commits the generated `src/` to the `zed-release` branch
-- The `zed-release` branch is for Zed extensions - it includes `src/` so Zed can compile the grammar to WASM.
-- **Never commit directly to `zed-release`** - it's managed by CI.
-- Zed extensions should reference the `zed-release` branch in their `extension.toml`.
+Using in Zed Extensions
+- Zed extensions should reference the main branch directly in their `extension.toml`:
+  ```toml
+  [grammars.stlcpp]
+  repository = "https://github.com/aalto-opencs/tree-sitter-stlcpp"
+  rev = "xxx"  # Use a commit SHA from the main branch
+  ```
+- The repository includes all necessary files (grammar source, generated parser, queries).
 
 Conservative change guidelines
 - If you are unsure about a big change (global trivia, operator fixity refactor, etc.), make a small local change first and run the example suite. Large refactors are riskier — prefer an iterative approach with many small commits so regressions are easy to bisect.
 - Document any non-obvious design choices inside `grammar.js` as comments so maintainers (human and automated) understand why a rule exists.
 
 Developer UX notes for an agent
-- Always run `tree-sitter generate` after editing `grammar.js` for local testing.
-- Run `./test/test.sh` to verify all test fixtures still pass.
-- **Never commit the `src/` directory** — it is gitignored and will be generated during build.
+- Always run `tree-sitter generate` after editing `grammar.js` to regenerate `src/`.
+- Run `tree-sitter test` to verify all 53 corpus tests still pass.
+- **Always commit the `src/` directory** along with `grammar.js` changes — it's part of the repository.
 - If you cannot run `tree-sitter generate` or `tree-sitter parse`, you can still reason about grammar changes conservatively, but clearly indicate that your changes are untested and request that a human run the generator and parser locally.
 
 Useful quick commands (for a human operator; the agent can include these in reports)
-- Generate parser artifacts (for local testing):
+- Generate parser artifacts:
   - `tree-sitter generate`
+- Run corpus tests:
+  - `tree-sitter test`
+- Update corpus test expected trees:
+  - `tree-sitter test --update`
 - Parse a file with the generated parser:
   - `tree-sitter parse PATH_TO_FILE`
-- Run the test suite:
-  - `./test/test.sh`
 - Search the grammar for symbol usage:
   - Use repo-wide text search for symbol names (search for `term_primary`, `application`, `maybe_infix`, etc.)
-- Run a sweep of examples (example approach for a human):
-  - Loop parse over `../stlcpp/examples/*.stlc` and collect outputs that include `ERROR`.
+- Run a sweep of upstream examples:
+  - `for file in ../stlcpp/examples/*.stlc; do tree-sitter parse "$file" 2>&1 | grep -q ERROR && echo "✗ $file" || echo "✓ $file"; done`
 
 If you are the agent taking action now
 - Make minimal edits, run the generator, parse targeted examples, and report back:

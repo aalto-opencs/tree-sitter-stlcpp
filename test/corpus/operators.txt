@@ -1,0 +1,297 @@
+================================================================================
+Function composition
+================================================================================
+
+f = inc . double
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (term_primary
+              (term_identifier)))
+          operator: (operator)
+          right: (application_or_primary
+            (term_primary
+              (term_identifier)))))))
+  (newline))
+
+================================================================================
+Chained composition
+================================================================================
+
+f = f . g . h
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (term_primary
+              (term_identifier)))
+          operator: (operator)
+          right: (application_or_primary
+            (term_primary
+              (term_identifier)))
+          operator: (operator)
+          right: (application_or_primary
+            (term_primary
+              (term_identifier)))))))
+  (newline))
+
+================================================================================
+Parenthesized composition with application
+================================================================================
+
+result = (f . g) 5
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (application
+              function: (application_or_primary
+                (term_primary
+                  (term_parens
+                    lparen: (lparen)
+                    term: (expr
+                      (infix_expression
+                        left: (application_or_primary
+                          (term_primary
+                            (term_identifier)))
+                        operator: (operator)
+                        right: (application_or_primary
+                          (term_primary
+                            (term_identifier)))))
+                    rparen: (rparen))))
+              argument: (app_argument
+                (term_primary
+                  (integer)))))))))
+  (newline))
+
+================================================================================
+Module path composition
+================================================================================
+
+main = int.parse . int.to_string
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (term_primary
+              (term_identifier)))
+          operator: (operator)
+          right: (application_or_primary
+            (term_primary
+              (term_identifier)))))))
+  (newline))
+
+================================================================================
+Arithmetic addition
+================================================================================
+
+sum = x + y
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (term_primary
+              (term_identifier)))
+          operator: (operator)
+          right: (application_or_primary
+            (term_primary
+              (term_identifier)))))))
+  (newline))
+
+================================================================================
+Arithmetic subtraction
+================================================================================
+
+diff = n - 1
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (term_primary
+              (term_identifier)))
+          operator: (operator)
+          right: (application_or_primary
+            (term_primary
+              (integer)))))))
+  (newline))
+
+================================================================================
+Arithmetic multiplication
+================================================================================
+
+double = x * 2
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (term_primary
+              (term_identifier)))
+          operator: (operator)
+          right: (application_or_primary
+            (term_primary
+              (integer)))))))
+  (newline))
+
+================================================================================
+Comparison less than
+================================================================================
+
+check = n < 2
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (term_primary
+              (term_identifier)))
+          operator: (operator)
+          right: (application_or_primary
+            (term_primary
+              (integer)))))))
+  (newline))
+
+================================================================================
+Comparison equality
+================================================================================
+
+check = n == 0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (term_primary
+              (term_identifier)))
+          operator: (operator)
+          right: (application_or_primary
+            (term_primary
+              (integer)))))))
+  (newline))
+
+================================================================================
+Chained arithmetic with application
+================================================================================
+
+result = fib (n - 1) + fib (n - 2)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (application
+              function: (application_or_primary
+                (term_primary
+                  (term_identifier)))
+              argument: (app_argument
+                (term_primary
+                  (term_parens
+                    lparen: (lparen)
+                    term: (expr
+                      (infix_expression
+                        left: (application_or_primary
+                          (term_primary
+                            (term_identifier)))
+                        operator: (operator)
+                        right: (application_or_primary
+                          (term_primary
+                            (integer)))))
+                    rparen: (rparen))))))
+          operator: (operator)
+          right: (application_or_primary
+            (application
+              function: (application_or_primary
+                (term_primary
+                  (term_identifier)))
+              argument: (app_argument
+                (term_primary
+                  (term_parens
+                    lparen: (lparen)
+                    term: (expr
+                      (infix_expression
+                        left: (application_or_primary
+                          (term_primary
+                            (term_identifier)))
+                        operator: (operator)
+                        right: (application_or_primary
+                          (term_primary
+                            (integer)))))
+                    rparen: (rparen))))))))))
+  (newline))

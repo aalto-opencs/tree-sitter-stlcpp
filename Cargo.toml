@@ -4,7 +4,7 @@ version = "0.0.1"
 edition = "2021"
 license = "MIT"
 description = "Tree-sitter grammar for the stlcpp language"
-repository = "https://example.com/tree-sitter-stlcpp"
+repository = "https://github.com/aalto-opencs/tree-sitter-stlcpp"
 
 [lib]
 name = "tree_sitter_stlcpp"

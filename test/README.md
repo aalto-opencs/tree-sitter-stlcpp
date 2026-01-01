@@ -1,66 +1,94 @@
 # Tree-sitter-stlcpp Tests
 
-This directory contains test fixtures for the STLC++ tree-sitter grammar.
+This directory contains the test suite for the STLC++ tree-sitter grammar using the standard tree-sitter corpus format.
 
-## Test Fixtures
+## Corpus Tests
 
-The `fixtures/` directory contains example STLC++ programs that successfully parse without errors:
+The test suite uses tree-sitter's standard corpus format with test cases organized in `corpus/*.txt` files:
 
-### Passing Test Cases
+- **applications.txt** - Application parsing (binary left-associative chaining)
+- **declarations.txt** - Type and value declarations
+- **functions.txt** - Function expressions (simple, curried, polymorphic, holes)
+- **lists.txt** - List literals and lcase expressions
+- **sum_types.txt** - Sum types and case expressions
+- **types.txt** - Type system features (forall, arrows, products, etc.)
+- **operators.txt** - Infix operators (composition, arithmetic, comparison)
+- **control_flow.txt** - If-then-else and case expressions
+- **comments.txt** - Comment handling
 
-- **basic_declaration.stlc** - Basic type declarations and value definitions
-- **sum_types.stlc** - Sum types (`A + B`) at type level and case analysis
-- **list_case.stlc** - List case analysis (`lcase`) with `nil` and `cons` patterns
-
-### Work-in-Progress Fixtures
-
-The `fixtures-wip/` directory contains examples from `stlcpp/examples` that have known parsing issues. See `fixtures-wip/README.md` for details on:
-
-- **fib.stlc**, **compose.stlc**, **church.stlc**, **io.stlc** - Multi-line function application issues
-- **operators.stlc** - Complex operator patterns
-- **comments.stlc** - Comment edge cases
-
-These are excluded from the main test suite but useful for tracking grammar improvements.
+Each corpus file contains multiple test cases with:
+- Input STLC++ code
+- Expected parse tree (S-expression format)
 
 ## Running Tests
 
-### Using the test script
-
 ```bash
-./test.sh
+tree-sitter test
 ```
 
-This will parse all fixtures and report:
-- ✓ PASS - File parses without ERROR nodes
-- ✗ FAIL - File contains ERROR nodes or fails to parse
+This runs all 53 corpus tests and reports:
+- ✓ Test passes - Parse tree matches expected
+- ✗ Test fails - Parse tree differs from expected
 
-### Manual testing
+## Adding Tests
 
-Parse a single file:
+1. Edit or create a corpus file in `test/corpus/`
+2. Add a new test case with this format:
+   ```
+   ================================================================================
+   Test name describing the feature
+   ================================================================================
+
+   [STLC++ code here]
+
+   --------------------------------------------------------------------------------
+
+   [Expected parse tree - leave empty initially]
+   ```
+3. Run `tree-sitter test --update` to auto-generate the expected tree
+4. Run `tree-sitter test` to verify
+
+## Test Coverage
+
+The corpus tests provide comprehensive coverage:
+
+- **Applications**: 6 tests (simple, multi-arg, type args, church encoding)
+- **Declarations**: 3 tests (basic, function types, module paths)
+- **Functions**: 4 tests (simple, curried, polymorphic, holes)
+- **Lists**: 4 tests (literals, nested, lcase, builtins)
+- **Sum types**: 5 tests (signatures, case, inl/inr)
+- **Types**: 12 tests (all type system features)
+- **Operators**: 10 tests (composition, arithmetic, comparison)
+- **Control flow**: 4 tests (if-else, nested, case)
+- **Comments**: 5 tests (placement, list literals, multiple)
+
+**Total: 53 corpus tests** covering all major language features
+
+## Manual Testing
+
+To manually test parsing on STLC++ files:
+
 ```bash
-tree-sitter parse fixtures/basic_declaration.stlc
+# Parse a file and show the tree
+tree-sitter parse <file.stlc>
+
+# Parse quietly (no position info)
+tree-sitter parse --quiet <file.stlc>
+
+# Parse and check for errors
+tree-sitter parse <file.stlc> 2>&1 | grep ERROR
 ```
 
-Parse and show the tree:
+Test against upstream examples:
+
 ```bash
-tree-sitter parse fixtures/sum_types.stlc
+# Parse all upstream examples
+for file in ../stlcpp/examples/*.stlc; do
+  echo "=== $(basename $file) ==="
+  tree-sitter parse "$file" 2>&1 | grep -c ERROR || echo "✓ No errors"
+done
 ```
 
-### Expected Behavior
+## Integration with CI/CD
 
-All fixtures in this directory should parse without ERROR nodes. If a fixture shows ERROR nodes, it indicates either:
-1. A bug in the grammar that needs fixing
-2. Invalid STLC++ syntax in the fixture (the fixture needs correction)
-
-## Adding New Tests
-
-To add new test cases:
-
-1. Create a `.stlc` file in `fixtures/` with descriptive name
-2. Add comments explaining what feature is being tested
-3. Run `./test.sh` to verify it parses correctly
-4. If it fails, either fix the grammar or the test case
-
-## Integration with Nix
-
-The `package.nix` in the project root includes a `checkPhase` that automatically runs tests on all fixtures during the Nix build process.
+The Nix build (`package.nix`) runs `tree-sitter test` during the check phase, ensuring all corpus tests pass before the build succeeds.

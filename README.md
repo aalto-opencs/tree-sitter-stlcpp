@@ -85,19 +85,21 @@ This matches the upstream STLC++ parser (there are no `--` comments).
 
 ## Generated files
 
-The C parser and metadata files under `src/` are **build artifacts** generated from `grammar.js`:
+The C parser and metadata files under `src/` are generated from `grammar.js`:
 
 - `src/parser.c` - Generated C parser implementation
 - `src/node-types.json` - Node type definitions
 - `src/grammar.json` - Compiled grammar metadata
 
-These files are **not checked into the repository**. They are generated during the build process via:
+These files are **checked into the repository** for convenience and to support direct use by editor extensions.
+
+To regenerate after editing `grammar.js`:
 
 ```bash
 tree-sitter generate
 ```
 
-The `package.nix` automatically runs `tree-sitter generate` during the build, so no pre-generated files are needed.
+Then commit the updated `src/` files along with your `grammar.js` changes.
 
 ## Queries
 
@@ -122,58 +124,70 @@ The Nix package compiles the C parser and installs:
 
 ## Using in Zed Extensions
 
-**For Zed extensions**, use the `zed-release` branch which includes generated `src/` files:
+**For Zed extensions**, reference this repository directly:
 
 ```toml
 [grammars.stlcpp]
 repository = "https://github.com/aalto-opencs/tree-sitter-stlcpp"
-rev = "xxx"  # Use a commit SHA from the zed-release branch
+rev = "xxx"  # Use a commit SHA from the main branch
 ```
 
-The `zed-release` branch is automatically maintained by GitHub Actions and contains:
-- All source files from `main` (`grammar.js`, etc.)
-- Generated parser files (`src/parser.c`, `src/grammar.json`, etc.)
-
-**Why two branches?**
-- **`main`**: Clean development - `src/` is a build artifact (gitignored)
-- **`zed-release`**: Publishing - `src/` committed for Zed's build process
-
-See `.github/workflows/README.md` for details on the automated publishing process.
+The repository includes all necessary files for Zed's build process:
+- Source grammar (`grammar.js`)
+- Generated parser files (`src/parser.c`, `src/grammar.json`, `src/node-types.json`)
+- Query files (`queries/highlights.scm`, etc.)
 
 ## Testing
 
-The `test/` directory contains a test suite with fixtures:
+The `test/` directory contains comprehensive tests using tree-sitter's standard corpus format:
 
-- **`test/fixtures/`** - Examples that parse without errors (used in CI/builds)
-  - `basic_declaration.stlc` - Type declarations and value definitions
-  - `sum_types.stlc` - Sum types (`A + B`) and case analysis
-  - `list_case.stlc` - List case expressions with `nil`/`cons` patterns
+The test suite in `test/corpus/` uses tree-sitter's standard corpus format:
 
-- **`test/fixtures-wip/`** - Examples with known parsing issues
-  - Multi-line function applications
-  - Complex operator patterns
-  - See `test/fixtures-wip/README.md` for details
+- **53 test cases** covering all major language features
+- Tests verify both parsing and AST structure
+- Organized by feature: applications, functions, types, operators, etc.
 
-Run the test suite:
+Run tests:
 ```bash
-./test/test.sh
+tree-sitter test
 ```
 
-All tests in `fixtures/` must pass. The `fixtures-wip/` directory tracks progress on remaining grammar limitations.
+Update expected trees after grammar changes:
+```bash
+tree-sitter test --update
+```
+
+Manual testing with upstream examples:
+```bash
+# Parse a specific file
+tree-sitter parse ../stlcpp/examples/var.stlc
+
+# Test all upstream examples
+for file in ../stlcpp/examples/*.stlc; do
+  tree-sitter parse "$file" 2>&1 | grep -q ERROR && echo "✗ $file" || echo "✓ $file"
+done
+```
+
+See `test/README.md` for complete testing documentation.
 
 ## Local development notes
 
 Typical workflow:
 
 1. Edit `grammar.js`
-2. Run `tree-sitter generate` (generates `src/` directory locally)
+2. Run `tree-sitter generate` to regenerate `src/` files
 3. Validate:
-   - `tree-sitter parse <file.stlc>`
-   - `./test/test.sh` (run test suite)
-4. Commit only `grammar.js` changes (not `src/` - it's gitignored)
-5. Update the Zed extension's pinned grammar revision (`extension.toml`) to the new commit SHA.
+   - `tree-sitter test` (run all 53 corpus tests)
+   - `tree-sitter parse <file.stlc>` (inspect parse tree for specific files)
+   - Test upstream examples if making significant changes
+4. Update corpus tests if needed: `tree-sitter test --update`
+5. Commit your changes:
+   - `grammar.js` (your grammar edits)
+   - `src/` (regenerated parser files)
+   - `test/corpus/` (if tests were added/updated)
+6. Push to `main`
 
-**Note:** The `src/` directory is generated locally for development but is not committed to the repository. The Nix build and CI will generate it automatically from `grammar.js`.
+**Note:** Always run `tree-sitter generate` and commit the updated `src/` files when you modify `grammar.js`. This ensures the repository stays in sync.
 
 ## Upstream references
 

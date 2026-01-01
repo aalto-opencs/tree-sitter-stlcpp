@@ -1,9 +1,0 @@
-// Test basic type declaration and value definition
-x : Int
-x = 42
-
-id : Int -> Int
-id = fun n : Int, n
-
-main : Int
-main = id x

@@ -17,11 +17,14 @@
     "description": "Tree-sitter grammar for the stlcpp language",
     "authors": [
       {
-        "name": "stlcpp contributors"
+        "name": "Niklas Halonen"
       }
     ],
     "links": {
       "repository": "https://example.com/tree-sitter-stlcpp"
     }
+  },
+  "bindings": {
+    "rust": true
   }
 }

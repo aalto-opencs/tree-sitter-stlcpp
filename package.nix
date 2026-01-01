@@ -10,25 +10,17 @@ stdenv.mkDerivation {
 
   src = ./.;
 
-  nativeBuildInputs = [
+  checkInputs = [
     tree-sitter
-    nodejs
+    nodejs  # Required for tree-sitter test
   ];
 
-  configurePhase = ''
-    runHook preConfigure
-
-    # Generate the parser from grammar.js
-    echo "Generating parser from grammar.js..."
-    tree-sitter generate
-
-    runHook postConfigure
-  '';
+  # No configure phase needed - src/ is committed to the repository
 
   buildPhase = ''
     runHook preBuild
 
-    # Compile the generated parser
+    # Compile the parser from committed src/parser.c
     echo "Compiling parser..."
     $CC -fPIC -c src/parser.c -o parser.o -I src
 
@@ -78,8 +70,8 @@ EOF
     mkdir -p tree-sitter-stlcpp
     ln -s $PWD/parser.so tree-sitter-stlcpp/stlcpp.so
 
-    # Run the test script
-    bash test/test.sh
+    # Run tree-sitter tests
+    tree-sitter test
 
     runHook postCheck
   '';

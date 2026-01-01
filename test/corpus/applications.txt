@@ -1,0 +1,279 @@
+================================================================================
+Simple application
+================================================================================
+
+main : Int
+main = id x
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (declaration
+    name: (term_identifier)
+    colon: (colon)
+    type: (type
+      (type_expr
+        left: (type_sum_or_primary
+          (type_primary
+            (type_identifier))))))
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (application
+              function: (application_or_primary
+                (term_primary
+                  (term_identifier)))
+              argument: (app_argument
+                (term_primary
+                  (term_identifier)))))))))
+  (newline))
+
+================================================================================
+Multi-argument application (left-associative)
+================================================================================
+
+result = f x y z
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (application
+              function: (application_or_primary
+                (application
+                  function: (application_or_primary
+                    (application
+                      function: (application_or_primary
+                        (term_primary
+                          (term_identifier)))
+                      argument: (app_argument
+                        (term_primary
+                          (term_identifier)))))
+                  argument: (app_argument
+                    (term_primary
+                      (term_identifier)))))
+              argument: (app_argument
+                (term_primary
+                  (term_identifier)))))))))
+  (newline))
+
+================================================================================
+Type argument followed by list literal
+================================================================================
+
+example = count Int [1, 2, 3:Int]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (application
+              function: (application_or_primary
+                (application
+                  function: (application_or_primary
+                    (term_primary
+                      (term_identifier)))
+                  argument: (app_argument
+                    (type_primary))))
+              argument: (app_argument
+                (term_primary
+                  (list_literal
+                    lbrack: (lbrack)
+                    head: (expr
+                      (infix_expression
+                        left: (application_or_primary
+                          (term_primary
+                            (integer)))))
+                    comma: (comma)
+                    tail: (expr
+                      (infix_expression
+                        left: (application_or_primary
+                          (term_primary
+                            (integer)))))
+                    comma: (comma)
+                    tail: (expr
+                      (infix_expression
+                        left: (application_or_primary
+                          (term_primary
+                            (integer)))))
+                    colon: (colon)
+                    type: (type_expr
+                      left: (type_sum_or_primary
+                        (type_primary
+                          (type_identifier))))
+                    rbrack: (rbrack))))))))))
+  (newline))
+
+================================================================================
+Type list brackets followed by nested list literal
+================================================================================
+
+example = count [Int] [[1, 2:Int]:[Int]]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (application
+              function: (application_or_primary
+                (application
+                  function: (application_or_primary
+                    (term_primary
+                      (term_identifier)))
+                  argument: (app_argument
+                    (type_primary
+                      lbrack: (lbrack)
+                      type: (type_expr
+                        left: (type_sum_or_primary
+                          (type_primary
+                            (type_identifier))))
+                      rbrack: (rbrack)))))
+              argument: (app_argument
+                (term_primary
+                  (list_literal
+                    lbrack: (lbrack)
+                    head: (expr
+                      (infix_expression
+                        left: (application_or_primary
+                          (term_primary
+                            (list_literal
+                              lbrack: (lbrack)
+                              head: (expr
+                                (infix_expression
+                                  left: (application_or_primary
+                                    (term_primary
+                                      (integer)))))
+                              comma: (comma)
+                              tail: (expr
+                                (infix_expression
+                                  left: (application_or_primary
+                                    (term_primary
+                                      (integer)))))
+                              colon: (colon)
+                              type: (type_expr
+                                left: (type_sum_or_primary
+                                  (type_primary
+                                    (type_identifier))))
+                              rbrack: (rbrack))))))
+                    colon: (colon)
+                    type: (type_expr
+                      left: (type_sum_or_primary
+                        (type_primary
+                          (type_list_brackets
+                            lbrack: (lbrack)
+                            type: (type_expr
+                              left: (type_sum_or_primary
+                                (type_primary
+                                  (type_identifier))))
+                            rbrack: (rbrack)))))
+                    rbrack: (rbrack))))))))))
+  (newline))
+
+================================================================================
+Church encoding: type application
+================================================================================
+
+one = succ zero
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (application
+              function: (application_or_primary
+                (term_primary
+                  (term_identifier)))
+              argument: (app_argument
+                (term_primary
+                  (term_identifier)))))))))
+  (newline))
+
+================================================================================
+Church encoding: multi-argument with nested application
+================================================================================
+
+result = n T f (b T f x)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (newline)
+  (value_definition
+    name: (term_identifier)
+    equals: (equals)
+    value: (maybe_expr
+      (expr
+        (infix_expression
+          left: (application_or_primary
+            (application
+              function: (application_or_primary
+                (application
+                  function: (application_or_primary
+                    (application
+                      function: (application_or_primary
+                        (term_primary
+                          (term_identifier)))
+                      argument: (app_argument
+                        (type_primary))))
+                  argument: (app_argument
+                    (term_primary
+                      (term_identifier)))))
+              argument: (app_argument
+                (term_primary
+                  (term_parens
+                    lparen: (lparen)
+                    term: (expr
+                      (infix_expression
+                        left: (application_or_primary
+                          (application
+                            function: (application_or_primary
+                              (application
+                                function: (application_or_primary
+                                  (application
+                                    function: (application_or_primary
+                                      (term_primary
+                                        (term_identifier)))
+                                    argument: (app_argument
+                                      (type_primary))))
+                                argument: (app_argument
+                                  (term_primary
+                                    (term_identifier)))))
+                            argument: (app_argument
+                              (term_primary
+                                (term_identifier)))))))
+                    rparen: (rparen))))))))))
+  (newline))
