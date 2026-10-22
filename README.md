@@ -193,3 +193,29 @@ Typical workflow:
 
 - Upstream STLC++ implementation and parser: https://github.com/aalto-opencs/stlcpp
 - Tree-sitter: https://tree-sitter.github.io/tree-sitter/
+## Licensing and contributions
+
+This project's software and technical documentation are [MIT licensed](LICENSE).
+Separately licensed third-party material and dependencies retain their existing
+licenses and notices. The software license does not license separately supplied
+course content, assignments, solutions, or student submissions.
+
+All contributors, including maintainers and direct committers, must follow
+[CONTRIBUTING.md](CONTRIBUTING.md) and have the rights to submit their original
+contributions under MIT.
+
+## Contributors
+
+Thanks to the people who have contributed to this project. This static snapshot
+preserves commit authors and human coauthors from the default-branch history
+through [e398b3d](https://github.com/aalto-opencs/tree-sitter-stlcpp/commit/e398b3daf952f82dbd79ee11d941f4537a45b969),
+reviewed on 22 October 2026. Aliases have been consolidated; unmerged branch
+contributions are not included.
+
+- [@lajp](https://github.com/lajp)
+- [@superseacat](https://github.com/superseacat)
+- [@xhalo32](https://github.com/xhalo32)
+
+These credits are not a statement of copyright ownership or a license grant.
+Keep them when moving repositories or replacing history; add future contributors
+without removing the historical credits.
