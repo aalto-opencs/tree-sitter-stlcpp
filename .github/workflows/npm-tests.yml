@@ -18,5 +18,9 @@ jobs:
           # Match the repository's Nix development shell.
           node-version: '22'
       - run: npm ci
+      # Nix tests the committed parser. This job tests the source grammar with
+      # the locked npm generator and CLI, including older supported parser ABIs.
+      - name: Generate a parser with the locked CLI
+        run: ./node_modules/.bin/tree-sitter generate
       - name: Test the grammar with the locked CLI
         run: ./node_modules/.bin/tree-sitter test
