@@ -1,0 +1,26 @@
+name: Locked npm grammar tests
+on:
+  pull_request:
+    paths: ['package.json', 'package-lock.json', 'grammar.js', 'test/**', '.github/workflows/npm-tests.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          # Match the repository's Nix development shell.
+          node-version: '22'
+      - run: npm ci
+      # Nix tests the committed parser. This job tests the source grammar with
+      # the locked npm generator and CLI, including older supported parser ABIs.
+      - name: Generate a parser with the locked CLI
+        run: ./node_modules/.bin/tree-sitter generate
+      - name: Test the grammar with the locked CLI
+        run: ./node_modules/.bin/tree-sitter test

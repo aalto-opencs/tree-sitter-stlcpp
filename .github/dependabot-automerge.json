@@ -1,0 +1,44 @@
+{
+  "baseBranch": "master",
+  "coursePaths": [
+    "materials",
+    "assignment-repository",
+    "opencs-materials",
+    "opencs-assignment-repository",
+    "test-opencs-materials",
+    "test-opencs-assignment-repository"
+  ],
+  "dependencyFiles": {
+    "package.json": [
+      ".github/workflows/test.yml",
+      ".github/workflows/npm-tests.yml"
+    ],
+    "package-lock.json": [
+      ".github/workflows/test.yml",
+      ".github/workflows/npm-tests.yml"
+    ]
+  },
+  "actionWorkflows": {
+    ".github/workflows/npm-tests.yml": [
+      ".github/workflows/test.yml",
+      ".github/workflows/npm-tests.yml"
+    ],
+    ".github/workflows/test.yml": [
+      ".github/workflows/test.yml"
+    ],
+    ".github/workflows/dependabot-policy.yml": [
+      ".github/workflows/test.yml"
+    ],
+    ".github/workflows/dependabot-automerge.yml": [
+      ".github/workflows/test.yml"
+    ]
+  },
+  "workflows": {
+    ".github/workflows/test.yml": [
+      "^test$"
+    ],
+    ".github/workflows/npm-tests.yml": [
+      "^tests$"
+    ]
+  }
+}
